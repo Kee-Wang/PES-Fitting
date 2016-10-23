@@ -1,0 +1,14 @@
+1. To add/delete file to github:
+git add/rm  filename
+2. To  make the commit
+git commit -m 'I made those change becasue...'
+3. Sync
+git push
+4. git clone https://....
+5. git pull
+
+
+You might receive 403 error. There are many ways to solve it. One way is to input password for every push.
+1. git config -l | grep url
+Result: remote.origin.url=https://github.com/github-username/github-repository-name.git
+2. git remote set-url origin "https://github-username@github.com/github-username/github-repository-name.git"
