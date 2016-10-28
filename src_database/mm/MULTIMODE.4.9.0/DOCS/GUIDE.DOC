@@ -1,0 +1,424 @@
+                               USER-GUIDE
+                               ----------
+
+This documentation is in two parts.  Part A is an outline of new features
+present in `multimode.4.9.0' which have been introduced since `multimode.3.4',
+and a knowledge of `multimode.3.4' is therefore assumed.  Part B is an outline
+of the test program directories accompanying this release.  Throughout this and
+the User-interface document USER.DOC, it is recommended that the Input document
+INPUT.DOC is referred to for the meanings of key input parameters.  In this
+document, new features are referred to by the relevant input parameters that
+control them.
+
+
+Part A - New Features of `multimode.4.9.0'
+------------------------------------------
+
+1.  ICOUPL: It is now possible to extend the mode-coupling of the potential to 
+six (6) modes.
+
+2.  ICOUPC: It is now possible to have a different mode-coupling for the
+coriolis terms than that for the potential.  For large(ish) systems, the
+`multi-mode' coupling becomes relatively more important for the potential than
+for the coriolis terms.  ICOUPC = 0,...,ICOUPL are the allowed ranges of the 
+new parameter ICOUPC which can be used to verify this for the case under
+investigation.  Much computing time and space can be saved by minimising the
+value of ICOUPC, particularly for high values of ICOUPL.   Currently, the
+maximum value of ICOUPC = 4.
+
+3.  INORM:  It is sometimes necessary to centre the Principal Axes on a
+transition state, rather than at equilibrium (cf ammonia, where the coordinate
+origin is the planar transition state).  Unless otherwise indicated, the
+normal mode analysis will assume that the first (lowest) six eigenvalues and
+eigenvectors are associated with the three translations and three rotations.
+For such an analysis performed at a saddle point there will be at least one
+imaginary frequency, and this situation is indicated by setting INORM < 0.
+
+4.  NMAX:   The maximum mode-coupling of the VCI basis has been extended to 5
+(see also MAXSUM and MAXBAS).
+
+5.  NCONT:  In `multimode.3.4' the composition of the VCI basis is governed by
+the three sets of parameters NMAX, MAXSUM and MAXBAS.  The parameters MAXBAS
+are mode-dependent, whereas NMAX and MAXSUM are common to all modes.  In order
+to allow more flexibility into the construction of the VCI basis, a new
+parameter NCONT has been introduced into `multimode.4.9.0'.  This parameter
+allows the total number of modes (NMODE=3N-6) to be split into a maximum of
+two groups (say low-frequency and high-frequency).  For this purpose NCONT=-2
+must be used (the facility with NCONT=+2 will be introduced in a future release
+of `multimode.4.9').  The actual modes selected for each `scheme' is input in
+ICONT and JCONT.  ICONT is the number of modes in each scheme, and JCONT is the
+actual modes, labelled by the normal mode analysis (INORM>0, INORM<0) or input 
+by the user (INORM=0).  Two individual VCI bases are set up in the standard
+way, and therefore a set of parameters MAXSUM must be input for each scheme.
+These two basis sets are then combined to form one complete VCI basis which
+covers the entire NMODE modes.  (A future release with NCONT=+2 will carry out
+a VCI on each scheme in turn, and collect the number of eigenfunctions given
+by NVAL1 and NVAL2.  These will then be re-combined in a conventional
+contraction scheme analysis).  Since `multimode.4.9.0' only fully supports the
+case NCONT=-2 (or the original single scheme with NCONT=1), only a single VCI 
+is carried out, and only NVAL1 is required.  This is equivalent to ISFCI>0, and
+will override any setting of ISCFCI if set non-zero.  If NVAL1=0, the number of
+eigenfunctions specified by ISCFCI will be used.
+
+6.  MODINT: Since integration is carried out numerically, time and space can be
+saved in cases where symmetry exists, by only integrating over half of the
+total range of modes which do not transform as the totally symmetric
+irreducible representation of the point group of the molecule under 
+investigation.  If symmetry other than C1 is indicated by NVSYM, then the
+modes corresponding to such asymmetric irreducible representations (labelled by
+ISYM) should be echoed in MODINT with a value of MODINT(MODE)=2.  All totally 
+symmetric modes should be given the value MODINT(MODE)=1.
+
+7.  MEFF:   Sometimes (see INORM<0) the origin of the normal coordinates is not
+on the minimum of the potential, and the preliminary one-dimensional 
+contraction of the primitive harmonic-oscillator basis will take place with all
+coordinates except the one under contraction set to zero.  This means that the
+contractions may take place at a saddle point.  Since the quantisation of the
+global potential will ultimately refer to the equilibrium (minimum) of the
+potential, it is desirable to contract the basis with respect to an `effective'
+potential which `sees' the effect of the global minimum.  For example, if the
+imaginary frequency in ammonia is labelled as mode number one (1), the values
+of MEFF(MODE) for MODE>1 to be given the values MEFF(MODE)=1, with MEFF(1)=0.
+This will result in the one-dimensional potential for mode MODE>1, for each
+point Q(MODE), being minimised with respect to the complete range of MODE=1.
+
+8.  NVSYM:  It is now possible to extend the number of irreducible
+representations to eight (8).  This is for pseudo D2h symmetry, where a centre
+of symmetry is added to C2v; hence the species A1g, A1u, ... etc. are all
+allowed.
+
+9.  LAN20:  For very large VCI matrices, it is probably most convenient to
+use the Davidson-Liu (Lanczos-like) iteration diagonalisation (see NCYCLE). 
+There is sometimes a problem with such diagonalisations, depending on the
+operating system (eg Linux before Mark 8), in that the maximum file-size
+allowed is 2GB.  To attempt to overcome this, the Lanczos files can be spread
+over 5 disc files by setting the parameter LAN20 to the maximum size of a
+single disc file < 2GB.  A further function of this parameter is to allow the
+diagonalisation procedure (for a single symmetry species, see MVSYM) to be
+restarted if any problems occur with the installation etc.   Providing that
+the message `Calculating Lanczos' has appeared on `fort.2', it is safe to kill
+the job and restart setting LAN20 = -LAN20.  All files created during the job
+with LAN20 > 0 will have to be saved so that they can be re-read during the job
+with LAN20 < 0.
+
+10. SYMBOL:  This input has been introduced to interface with abinitio packages
+when using the `Direct Dynamics' facility (see MOLPRO below).  The NATOM atomic
+symbols are input in the order used in the Normal coordinates that has been
+chosen by the user.  This parameter is ALWAYS required.
+
+11. XTANPM:  This input has been introduced to assist in the fitting of M-mode
+grids when using the `Direct Dynamics' facility (see MOLPRO below).  For each
+of the 3N-6 normal modes, a parameter XTANPM(MODE) is input such that, if the
+extreme Gauss quadrature point is G(max) = -G(-max), a variable Y is defined
+as Y = gamma.Q (Q is a mass-weighted normal coordinate), such that 
+Y = XTANPM(MODE) at Q = G(max).  The variable tanh(Y) is then used in the
+potential.  This parameter behaves like a Morse function at large displacements
+and the input parameter XTANPM(MODE) sets the asymptotic value.  In most cases,
+a value XTANPM(MODE) = 1.0 will be appropriate, but this can be varied if
+required.
+
+12. MOLINC:  This input has been introduced for the new `Direct Dynamics' 
+facility (see MOLPRO below).  Its allowed values are 1 & 2, and is used to
+stipulate the number of HEG integration points used to generate M-mode grids
+which are used to define the points at which abinitio calculations are
+required.  MOLINC = 1 implies that every HEG point will be used, whilst
+MOLINC = 2 implies every other HEG point will be used.
+
+13. MOLPRO:  This is the key parameter in the new `Direct Dynamics' feature of
+`multimode.4.9.0'.  The method of M-mode coupling offers a solution to the
+problem of generating global potentials for large molecules.  If, for example,
+3-mode coupling is all that is required, then only 1-mode, 2-mode amd 3-mode
+grids of the potential are required....anything greater than this will never be
+used, and therefore need not be constructed.  Potentials are invariably 
+obtained these days from abinitio packages such as `Molpro', and files can be 
+produced to interface with such abinitio packages.  The abinitio data are then 
+fed back into `multimode.4.9.0' to produce the required M-mode grids.  There
+are two possible ways of creating potentials corresponding to these grids.  The
+first way is to fit the abinitio data to a polynomial form (MOLPRO > 0) and
+then use these fits to generate the potential along these grids, as required.
+The second way is to store potentials and first derivatives at the M-mode grid
+points, and then to use a Hermite interpolation in order to generate the
+potential, as required.  As an aside, it is even possible to re-determine a
+potential which already exists in functional form (it may contain `wiggles' or 
+some other feature that requires `smoothing out').
+
+But assume that it is required to investigate the spectroscopy of a molecule
+for which nothing is known.  The following procedure can be adopted to fit the
+various M-mode grids.  The first thing that must be done is to obtain the
+position of the equilibrium structure abinitio, and then to carry out a
+standard Wilson FG Normal Coordinate analysis within the abinitio package.  The
+`fort.1' data file for `multimode.4.9.0' is then set up with IWHICH = 0,
+ISCFCI < 0, INORM = 0 and NPOT = 3N-6.  The normal coordinate harmonic
+potential (3N-6 values of omega) is then input as IPOT, JPOT, CPOT, together
+with the parameters SYMBOL, XM, X0 and XL (see INPUT.DOC), where XL are the
+mass-weighted displacement vectors arising from the Wilson FG analysis.  Now
+set ICOUPL = ICOUPC = 1 and MOLPRO = 1 and run.  A file `fort.4' will be 
+produced with a series of cartesian geometries (Angstroms), corresponding to 
+one-mode Gauss quadrature grids; in particular, a line of `**********' will 
+appear for each geometry.  This line must be replaced by a line containing a 
+single value of the abinitio energy (all other lines must remain intact) and 
+the new file must be transferred to `fort.3'.  Now amend `fort.1' by setting 
+MOLPRO = 2 and re-run.  A file `fort.4' will again be produced, but this time 
+it will contain the fitted one-mode potentials in the order required by 
+`multimode.4.9.0' (the number of Gauss quadrature grid points generated in this
+scheme will be fixed by the input parameter MBF).  This file, preceeded by a 
+suitable single-record header such as C**ONE-DIMENSIONAL FITS should now be 
+appended to the `fort.1' input file.
+
+To continue with the fitting of two-mode grids, set ICOUPL = ICOUPC = 2,
+MOLPRO = 3, and MOLINC = 1 if all HEG points are to be used to contruct the
+grids, or MOLINC = 2 if alternate HEG points are to be used.  The number of
+HEG points generated will be governed by NVF from the algorithm NVF+(MBF-NBF),
+where (unlike `multimode.3.4') the number of points is always ensured to be
+EVEN.  Then set MOLPRO = 4 and transfer `fort.4' to `fort.3', with the line of
+`**********' replaced by abinitio energies and re-run to obtain the 2-mode
+potentials.
+
+This process is repeated for 3-mode and 4-mode potentials if required, noting
+that the number of abinitio calculations will grow rapidly from 2-mode through
+4-mode grids, and so careful manipulation of the number of HEG points (using
+NVF and MOLINC) is suggested.
+
+Full symmetry of the system is used such that no point will be generated twice,
+so NVSYM and the remaining symmetry parameters should be set if appropriate.
+This procedure can first be tested by the user on a molecule for which he has 
+a global potential.   Such a test on the 6-mode molecule H2CS is supplied with
+multimode.4.9.0' (see Part B below).
+
+On completion of the fitting procedure, an enlarged `fort.1' will exist which
+contains the potential parameters for the M-mode cuts appended in sequence.
+In order to use these potentials, set up the remaining parameters required for
+a VCI calculation with IWHICH < 0 (keeping MOLPRO > 0).  A complete sequence of
+`fort.1' files is included in the test programs that accompany this release of 
+multimode.4.9.0' which should act as a guide.
+
+A related method can be performed, except that MOLPRO < 0 is set in the above
+procedure.  This is the indication that the potential is to be interpolated
+between grid points.  At the input of `fort.3' with `even' MOLPRO, not only is
+the potential required, but the derivatives with respect to the mass-weighted
+normal coordinates Q.  For an M-mode grid, the order of the first derivatives
+in the input line `**********' is: V, dV/dQ(k), dV/dQ(l), dV/dQ(n), dV/dQ(m),
+where k > l > n > m.  The actual modes are output to 'fort.3' to make sure that
+the correct ordering can be guaranteed.  How the derivatives are obtained,
+however, is another matter; it may be possible to obtain derivatives with
+respect to x,y,z directly from the abinitio package, and then the normal
+coordinate vectors can be used to convert these to derivatives with respect to
+the Q.  Other ways might be to obtain the derivatives by finite differences in
+the abinitio cycle, or even to fit the potentials to polynomials and then
+differentiate these.  This method of `Direct Dynamics' is however more 
+cumbersome than that described above for the M-mode fits, and should possibly 
+be avoided.
+
+14. IREACT:  This is the key parameter in the new `Reaction Path' feature of
+`multimode.4.9.0'.  IREACT labels the torsional mode at the starting value of
+`tau' (the Reaction Path coordinate) selected by the user.  This will be the
+order of the torsional mode in a Wilson FG analysis performed at the starting
+configuration.  If IREACT > 0, a global potential function must be supplied, 
+and if IREACT < 0, files obtained from abinitio packages must be supplied.  For
+IREACT > 0, two variants are available.  The first satisfies the Eckart 
+conditions between successive points along the path, whilst the second uses 
+successive geometries which are aligned along principal axes.  For IREACT < 0, 
+the non-Eckart procedure is used.  For all `Reaction Path' studies, the user 
+must provide a subroutine REACT (see USER.DOC).  If all `Reaction Path'
+diagnostics are required, set IPRINT > 0, ISCFCI < 0.  This will stop after the
+construction of the `Reaction Path', when the user can investigate the many
+tests pertaining to the accuracy/validity of the path.  Once satisfied, set
+IPRINT < 0  and ISCFCI > 0, plus the remaining parameters required for a 
+conventional VCI run (see INPUT.DOC and RPH in Part B below).
+
+Corresponding to the mode denoted by IREACT, the parameters NBF,MBF,NVF will
+be set, bearing in mind the curvilinear nature of the `Reaction Path'
+coordinate.  MBF = 90 or higher is usually sufficient for the number of
+integration points spanning `tau' = 0 to 360 degrees.  NBF is the number of
+primitive (both sin(n.tau) and cos(n.tau)), and something in the range 30 to 60
+is reasonable.  The reason for so many torsional primitives is that convergence
+along the `Reaction Path' is slow for such functions.
+
+15. IDUMP:   This is the key parameter in the new `Dump & Restart' feature of
+`multimode.4.9.0'.  The idea is to be able to carry out a vibrational analysis
+and then to calculate properties relating to these vibrational wavefunctions.
+Currently, this feature is not available for `Reaction Path' studies, but will
+be introduced in a future release of `multimode.4.9'.  Furthermore, only the
+evaluation of dipole moment matrix elements is available, but I welcome any
+further suggestions that you may have for future implementation.  If IDUMP > 0,
+then IDUMP VCI wavefunctions will be saved, as it is for these functions that
+the property is to be calculated.  To calculate the dipole moment matrix
+elements, the program can be restarted with LDUMP = 1.  The user must provide
+a routine to evaluate the dipole moment components (as for the equivalent
+routine for the potential);  if IWHICH > 0, the internal coordinate routines 
+GETPOT (potential) and GETDIP (dipole) must be supplied.  If IWHICH < 0, the 
+equivalent normal coordinate routines GETQPT (potential) and GETQDT (dipole) 
+must be supplied.  The 'Dump & Restart' facility is not (yet) supported for
+the black-box normal coordinate potential and dipole indicated by IWHICH = 0.
+Dipole moment components are input in the sequence A1,B2,B1(A2) if C2v; A',A"
+if Cs, etc..
+
+
+Part B - Test Programs for `multimode.4.9.0'
+--------------------------------------------
+
+The test programs supplied with `multimode.4.9.0' are intended to augment those
+supplied with `multimode.3.4' in such a way as to give examples of the majority
+of features now at the user's disposal.  The new tests are grouped into five 
+distinct directories H2CS, HOOH, FURAN, RPH and MOLPRO.
+
+1.  H2CS:  This directory is mainly a hard copy of all allowed permutations
+of the potential integration coupling (ICOUPL) and the Coriolis integration
+coupling (ICOUPC) for standard VCI runs using a potential in internal
+coordinates (IWHICH>0).  For all cases except ICOUPL=5 and ICOUPL=6, these 
+tests include both J=0 and J=1.  The reason for this complete set is 
+straightforward; should the user modify the code in any way (incorrectly), the 
+test programs should be repeated, starting with ICOUPL=1, ICOUPC=0, followed by
+ICOUPL=1, ICOUPC=1, etc. until such time that the results corresponding to the 
+relevant `fort.2' file are no longer reproduced.  This may help in locating the
+suspect routine.  The user is, however, NOT encouraged to make changes to the 
+code in any way before prior consultations with myself.  All test input/output 
+files which contain the word `test' are single-scheme (NCONT=1) VCI 
+calculations, for which `fort.1.H2CS.test' is the master input file, set up 
+with ICOUPL=4, ICOUPC=4, JMAX=0, EVLJ0=0.0.  These parameters alone need to be 
+changed to run all the examples bearing the word `test'.  Standard `multimode'
+is reported in Theor. Chem. Accts., 100, 191 (1998); J. Phys. Chem., A104, 
+2443 (2000); Int. Rev. Phys. Chem., 22, 533 (2003) and references therein.
+
+Two further tests are supplied which illustrate the `Dump & Restart' facility 
+(see also FURAN below) for a potential and dipole in internal coordinates 
+(IWHICH>0).  In `fort.1.H2CS.dump' IDUMP=20 indicates that 20 VCI wavefunctions
+are to be saved for future use on `fort.60' whilst in `fort.1.H2CS.restart' 
+dipole matrix elements between these functions are calculated by setting 
+LDUMP=1 (the only LDUMP property supported to date).  In order to calculate the
+three components of the dipole (A1, B2, B1) which will be integrated using the 
+same integration points as those used to integrate the potential, a grid of 
+geometries must be generated in the Eckart frame at which the X,Y,Z components 
+of the dipole must be calculated and subsequently fit.  The input file 
+`fort.1.H2CS.eckart' can be run to generate such a grid.  In theory, all 
+displacements from the reference, which are determined by the normal coordinate
+vectors should already be in the Eckart frame, but this may not be guaranteed 
+due to rounding errors, etc. if external normal coordinates are input 
+(INORM=0).  This feature is a safeguard against this occurring.  In 
+`fort.1.H2CS.eckart', MDUMP=-4 is set to use 4 central (HEG) grid points and 
+terminate after generating the Eckart frame grid.  Both cartesian coordinates 
+and bond distances are given at each point in the grid.  The `Dump & Restart' 
+tests are reported in Phys. Chem. Chem. Phys., 3, 508 (2001).  A second 
+`Dump & Restart' test is similar to the above, but the VCI basis is constructed
+for two separate schemes (NCONT=-2) before recombination to give the required 
+VCI basis which spans all 3N-6 modes.  Data for this test are in 
+`fort.1.H2CS.-C.dump' and 'fort.1.H2CS.-C.restart'.  More information on
+`Dump & Restart' can be obtained from IDUMP in Part A above.
+
+For all tests, the USER.DOC routine `user.H2CS.F' is supplied.  USERIN reads 
+all parameters necessary to evaluate the potential and dipole, whilst GETPOT 
+and GETDIP calculate the instantaneous values of the potential and LDIP 
+components of the dipole, respectively.  The remaining routines in 
+`user.H2CS.F' are not used but must be present as dummy routines.  The 
+potential (plus dipole) parameters are appended to `fort.1.H2CS.dump' and 
+`fort.1.H2CS.restart', respectively.
+
+2.  HOOH:  This directory is a hard copy of all allowed permutations of the 
+potential integration coupling (ICOUPL) and the Coriolis integration coupling 
+(ICOUPC) for `Reaction Path' VCI runs using a potential in internal coordinates 
+(IWHICH>0).  For all cases, these tests include both J=0 and J=1.  The choice
+of `Reaction Path' is that for which each point along the path, separated from
+the previous point by a torsional (HOOH) angle of 0.5 degrees, satisfies the
+Eckart conditions with respect to the previous point.  The parameter IREACT>0
+points to the curvilinear mode number in a Wilson FG analysis at equilbrium.
+The user-supplied routine `react.XXX.eckart.f' that is needed to generate such 
+a path is detailed in USER.DOC (see also RPH below).  The routine `user.HOOH.F'
+is supplied, which inputs all necessary parameters in USERIN, evaluates the 
+potential energy using internal valence coordinates (IWHICH>0) in GETPOT, and 
+determines the structure corresponding to the minimum energy for a given 
+torsional angle in MINPOT.  The HOOH `Reaction Path' tests are reported in 
+J. Chem. Phys., 113, 987 (2000) and Spectrochimica Acta, in press (2004) for 
+J=0 and J=1, respectively.
+
+3.  FURAN:  The test in this directory covers two new aspects of 
+`multimode.4.9.0'.  The first is the use of potential (and dipole) functions,
+created free-standing by the user in mass-weighted normal coordinates, denoted
+by IWHICH<0 and MOLPRO=0 in `fort.1' (note that the choice of coordinate
+Y=gamma.Q is not adopted in this test, although the parameters XTANH must be
+input as dummy since IWHICH<0).  The second aspect covered by this test is the
+`Dump & Restart' facility, and in `fort.1.FURAN.dump' the Dump facility is
+initiated by setting IDUMP=20 to indicate 20 VCI wavefunctions will be saved
+for future use on `fort.60'.  In `fort.1.FURAN.restart' the evaluation of
+dipole matrix elements (the only property supported at the moment) is prompted
+by LDUMP=1.  The relevant routines in USER.DOC are supplied in `user.FURAN.F'.
+Routine USERIN inputs all parameters necessary to evaluate the potential and
+dipole, whilst GETQPT evaluates the potential which has been constructed by
+differentiation of an abinitio PES and converted to mass-weighted normal
+coordinates as an independent exercise.   Similarly, the three components of
+the dipole (A1, B2, B1) are evaluated in GETQDT, depending on the parameter
+IDIP.  The remaining routines in `user.FURAN.F' are not used but must be 
+present as dummy routines.  The potential (plus dipole) parameters are appended
+to `fort.1.FURAN.dump' and `fort.1.FURAN.restart', respectively.  The FURAN
+tests are reported in Spectrochimica Acta, A59, 1881 (2003) and Phys. Chem.
+Chem. Phys., 6, 340 (2004).  More information on `Dump & Restart' can be
+obtained from IDUMP in Part A above.
+
+4.  RPH:  This directory contains tests for the three supported versions of the
+`Reaction Path' facility, and is sub-divided into three further directories
+(ECKART, NONECKART, ABINITIO).  
+
+ECKART contains a test similar to those in HOOH above, and the user is also 
+referred to that directory.  The benefit of satisfying the Eckart conditions 
+between successive points along the path is that the successive structures form
+a smoothly-varying path.  The (slight) drawback is that very small numerical 
+errors become enlarged at points along the path as they become more distant 
+from the starting point, and it may become necessary to `tidy up' a structure 
+of high symmetry (for example for HOOH it is necessary to ensure that the `cis' 
+and `trans' structures are strictly planar, due to the fact that the rotations 
+required to obey successive Eckart conditions lead ultimately to slightly 
+off-planar structures - the user can handle this difficulty as he/she feels 
+fit, but it is pointed out here as something to beware of).  
+
+NONECKART overcomes this difficulty in so far as successive points along the 
+path are rotated to a principal axis coordinate system only.  In this case 
+however, it can not be guaranteed that the coordinate systems for successive 
+points along the path have not undergone axis-interchange due to over-rotation.
+A test must therefore be included to ensure that the path remains smooth.  The 
+user-supplied routine `react.XXX.noneckart.f' that is needed to generate such a
+path is detailed in USER.DOC.
+
+ABINITIO goes about the `Reaction Path' problem in a completely different way,
+since now it is assumed that no potential is available for the molecule in
+question.  In this sense, the approach is more one of `direct dynamics' in
+which everything is evaluated by some abinitio package (GAUSSIAN, MOLPRO,..).
+Specific data files must be generated corresponding to specific path points,
+and therefore it is important to know the starting point of the path (usually
+some high-symmetry structure such as `cis' or `trans') and the torsional
+interval between successive points.  This process is outlined in detail for
+`react.XXX.abinitio.f' in USER.DOC where the path is constructed as in 
+NONECKART above.  The test example supplied is for a harmonic methanol 
+potential, reported in Molec. Phys., 101, 3513 (2003), and the parameter
+IREACT<0 points to the curvilinear mode in a Wilson FG analysis at equilibrium.
+
+All test programs supplied in the RPH directories give full output (IPRINT>0) 
+at each step during the development of the path (the determination of the path,
+the derivatives of the path structures, the projection out of the `Reaction 
+Path' coordinate, the derivatives of the 3N-7 normal coordinate vectors).  More
+information on `Reaction Path' can be obtained from IREACT in Part A above, and
+in the document USER.DOC.
+
+5.  MOLPRO:  This directory contains tests for the construction of the M-mode
+cuts of the potential, and is sub-divided into two further directories (FITS,
+HERMITE).
+
+FITS contains test data for fitting 1-mode to 5-mode cuts in the potential, by
+mimicking an abinitio package with the use of an internal coordinate potential
+(IWHICH>0).  The potential cuts produced at each stage are successively
+appended to the various data files in `fort.1.H2CS.fit.M.V', where `M' is the
+M-mode cut in question.  These fitted cuts are then used in evaluation of the
+vibrational energy levels with `fort.1.H2CS.test.fit.V', where ICOUPL and
+ICOUPC can be varied at the user's discretion (See Part A above).  The test
+example supplied is reported in Chem. Phys. Lett., 352, 1 (2002).
+
+HERMITE contains equivalent data for interpolation of the M-mode cuts of the
+potential used in FITS above.   The interpolation data (potential plus first
+derivatives) produced at each stage are successively appended to the various 
+data files in `fort.1.H2CS.herm.M.V', where `M' is the M-mode cut in question.  
+These cuts are then used in evaluation of the vibrational energy levels with 
+`fort.1.H2CS.test.herm.V', where ICOUPL and ICOUPC can be varied at the user's
+discretion (see Part A above).  The test example supplied is reported in Chem.
+Phys. Lett., 342, 636 (2001).
+
+More information on `Direct Dynamics' can be obtained from MOLPRO in Part A
+above.  In particular, details on how to construct potential cuts from abinitio
+data are given.

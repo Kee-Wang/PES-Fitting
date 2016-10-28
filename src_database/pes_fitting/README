@@ -1,0 +1,5 @@
+To fit:
+./fit.x $coef_dir $xyz_file
+
+calculate potential:
+./getpot.x $xyz_file

@@ -1,0 +1,40 @@
+#!/bin/bash
+#PBS -q xeon16
+#PBS -l nodes=1:ppn=4
+#PBS -N pts
+#PBS -r n
+#PBS -c n
+#PBS -m n
+#PBS -e /dev/null
+#PBS -o /dev/null
+#PBS -S /bin/sh
+
+id=`echo $PBS_JOBID |cut -d. -f1`
+basename=`echo $infile |sed 's/\.[a-zA-Z]*$//' `
+log="$PBS_O_WORKDIR/pts.${id}.log"
+exe=${exe:="splitandsubmit"}
+ndata="2"
+
+export TMPDIR="/scratch/$USER"
+echo "job id:        " $PBS_JOBID  >> $log
+echo "input file:    " $infile $PBS_JOBNAME >> $log       
+echo "exicutalbe:" $exe >> $log       
+echo "job starts at: " `date` >> $log
+echo "submitted from:" $PBS_O_HOST >> $log
+echo "submitted to:  "  >> $log
+cat $PBS_NODEFILE >> $log
+echo "" >> $log
+
+MYDIR="/scratch/kee/pts-$id"
+mkdir $MYDIR
+cd $MYDIR
+cp $PBS_O_WORKDIR/* . -r
+
+echo ./$exe $ndata >>$log 2>&1
+./$exe $ndata >>$log 2>&1
+
+cp -r $MYDIR/* $PBS_O_WORKDIR/
+rm -rf $MYDIR
+
+echo "job ends at:   " `date`  >> $log
+

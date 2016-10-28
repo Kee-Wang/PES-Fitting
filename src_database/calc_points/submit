@@ -1,0 +1,61 @@
+#!/bin/csh
+
+set base=`pwd`
+
+set suffix=_1
+set ibase=`echo $1 | sed 's/\.[a-zA-Z4-9]*$//'`
+set kbase=`echo $ibase | sed 's/\_/ /' | sed 's/\-/ /' | sed 's/\+/ ,/'`
+if ( -w $ibase.out && $?suffix ) then
+  if ( -w $ibase.out$suffix ) then
+    cat $ibase.out >> $ibase.out$suffix
+    rm -f $ibase.out
+  else
+    mv $ibase.out $ibase.out$suffix
+  endif
+endif
+
+set title=j$ibase
+set input=$1
+set nodect=1
+if ( $#argv >= 2 ) then
+  set nodect = `echo $argv[2]`
+endif
+
+set cpuct=1
+if ( $#argv >= 3 ) then
+ set cpuct = `echo $argv[3]`
+endif
+
+cat > pbs.$$ <<EOF
+### I want n1x node(s) with n2x cpu(s) each
+#PBS -l nodes=$nodect\:ppn=$cpuct
+###
+#PBS -N $title
+#PBS -r n
+#PBS -c n
+#PBS -m n
+#PBS -joe
+#PBS -koe
+#PBS -V
+#PBS -S /bin/csh
+#PBS -q xeon16
+
+setenv TMPDIR /scratch/$user
+
+cd $base
+set np=\`cat \$PBS_NODEFILE | wc -l\`
+cat \$PBS_NODEFILE
+
+setenv JOBID \`echo \$PBS_JOBID\`
+echo \$JOBID
+
+/usr/local/bin/molprop_2010_1_Linux_x86_64_i8 -n \$np  $input
+#/usr/local/bin/molprop_2008_1 -n \$np  $input
+
+EOF
+
+qsub pbs.$$
+
+## clean-up
+rm -f pbs.$$
+

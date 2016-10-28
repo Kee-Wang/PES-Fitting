@@ -1,0 +1,5753 @@
+C****************************************************************
+C****************************************************************
+C**VIB
+C****************************************************************
+C****************************************************************
+      SUBROUTINE CONTRA(NB,MB,H,XQ,V,OMEGA,XK,MODE,NVF,NMODE,EVAL)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION NVF(NMODE)
+      DIMENSION H(NB,MB,3),XQ(MB),V(MB),XK(NB,NB),EVAL(MB)
+      COMMON/PATH/ISCFCI
+      COMMON/CIDIAG/ICID,ICI,JCI
+      COMMON/FILASS/IOUT,INP
+C**H CONTAINS ORIGINAL PRIMITIVES SIZE NB < MB
+      DO IX=1,NB
+        DO IY=1,IX
+          XK(IY,IX)=0
+        END DO
+      END DO
+      CALL THISKE(H,XQ,NB,MB,XK,OMEGA)
+      DO M=1,MB
+        VV=V(M)
+        DO IRHS=1,NB
+          X=H(IRHS,M,1)
+          DO ILHS=1,IRHS
+            Y=H(ILHS,M,1)
+            XK(ILHS,IRHS)=XK(ILHS,IRHS)+Y*X*VV
+          END DO
+        END DO
+      END DO
+      NV=NVF(MODE)
+      CALL DIAG(XK,XK,NB,NB,-1,V,EVAL,V,NV,NV,XK,NB,NB,XK,XK,
+     1XK,IDUM,IDUM,IDUM)
+      CALL REFORM(H,XK,NB,NV,MB,V,XK,XK)
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE MTZERO(XK,N)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION XK(N,N)
+      DO IRHS=1,N
+        DO ILHS=1,IRHS
+          XK(ILHS,IRHS)=0
+        END DO
+      END DO
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE THISKE(H,XQ,NN,MM,XK,OMEGA)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION H(NN,MM,3),XQ(MM),XK(NN,NN)
+      COMMON/WHICH/IWHICH
+      COMMON/FILASS/IOUT,INP
+C**ZERO ORDER KINETIC ENERGY TERM
+      DO M=1,MM
+        Q=XQ(M)
+        IF(IWHICH.EQ.0)THEN
+          VHARM=OMEGA*OMEGA*Q*Q/2
+        ELSE
+          VHARM=0
+        END IF
+        DO IRHS=1,NN
+          X=-H(IRHS,M,3)/2+VHARM*H(IRHS,M,1)
+          DO ILHS=1,IRHS
+            Y=H(ILHS,M,1)
+            XK(ILHS,IRHS)=XK(ILHS,IRHS)+Y*X
+          END DO
+        END DO
+      END DO
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE THATKE(ISTAT,NSTAT,NMODE,ISTATE,MODE,H,XQ,NN,MM,XK,KXK
+     1,OMEGA)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION ISTAT(NSTAT,NMODE),XK(KXK,KXK)
+      DIMENSION H(NN,MM,3),XQ(MM)
+      COMMON/WHICH/IWHICH
+      COMMON/FILASS/IOUT,INP
+C**ZERO ORDER KINETIC ENERGY TERM
+      ITHAT=ISTAT(ISTATE,MODE)
+      TERM=0
+      DO M=1,MM
+        Q=XQ(M)
+        IF(IWHICH.EQ.0)THEN
+          VHARM=OMEGA*OMEGA*Q*Q/2
+        ELSE
+          VHARM=0
+        END IF
+        X=-H(ITHAT,M,3)/2+VHARM*H(ITHAT,M,1)
+        Y=H(ITHAT,M,1)
+        TERM=TERM+Y*X
+      END DO
+      DO IRLHS=1,KXK
+        XK(IRLHS,IRLHS)=XK(IRLHS,IRLHS)+TERM
+      END DO
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE THIS1(H,XQ,NN,MM,XK,NMODE,MODE,NATOM,QQ,XZ,AB,
+     1B,AA,BB,RR,XX,X0,XL,XM,NPOT,IPOT,JPOT,CPOT,VP,VPR,VC,VCR,VR,VRR,
+     2J21,K)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      REAL*8 VP(MM),VC(MM),VR(J21,MM)
+      REAL*4 VPR(MM),VCR(MM),VRR(J21,MM)
+      DIMENSION H(NN,MM,3),XQ(MM),XK(NN,NN)
+      DIMENSION QQ(NMODE),XZ(NMODE,NMODE,3),AB(NMODE,3)
+      DIMENSION B(NMODE,NMODE),AA(NMODE,3,3),BB(NMODE),RR(NATOM,NATOM)
+      DIMENSION XX(NATOM,3),X0(NATOM,3),XL(NATOM,NMODE,3),XM(NATOM)
+      DIMENSION G1(3,3),XIN(3,3),XMU(3,3),SUP1(3,3),SUP2(3,3),SUP3(10)
+      DIMENSION IPOT(NPOT,6),JPOT(NPOT,6),CPOT(NPOT)
+      COMMON/COUPLE/ICOUPL,JCOUPL
+      COMMON/WHICH/IWHICH
+      COMMON/FACTOR/FACTOR
+      COMMON/TIMER/ITIM1A,ITIM1B,ITIM2A,ITIM2B,ITIM3A,ITIM3B,
+     1ITIM4A,ITIM4B,ITIM
+      COMMON/PRINT/IPRINT,JPRINT
+      COMMON/FILASS/IOUT,INP
+      IF(ITIM1A.EQ.0)THEN
+        IF(IPRINT.GT.1)THEN
+          WRITE(IOUT,*)'Calculating THIS1'
+          CALL TIMIT(1)
+        END IF
+      END IF
+      FACT=0
+      IF(ICOUPL.EQ.1)FACT=1/FACTOR
+      IFACT=1
+      IF(IWHICH.NE.0)THEN
+        IF(ICOUPL.EQ.1)IFACT=1
+        IF(ICOUPL.EQ.2)IFACT=-(NMODE-2)
+        IF(ICOUPL.EQ.3)THEN
+          IFACT=(NMODE-3)*(NMODE-1)
+          DO I=2,NMODE-2
+            IFACT=IFACT-I
+          END DO
+        END IF
+        IF(ICOUPL.EQ.4)THEN
+          IFACT=-(NMODE-4)*(NMODE-3)*(NMODE-1)
+          DO I=1,NMODE-4
+            IFACT=IFACT-I*(NMODE-3-I)
+          END DO
+          DO I=1,NMODE-4
+            IFACT=IFACT+(NMODE-2)*I
+          END DO
+          DO I=2,NMODE-2
+            IFACT=IFACT+(NMODE-4)*I
+          END DO
+        END IF
+      END IF
+      TERM=0
+      FACTRC=FACT
+      IF(JCOUPL.GT.0)THEN
+        IF(J21.GT.1.AND.ICOUPL.EQ.1)READ(61)VR
+        READ(71)VP
+        READ(81)VC
+      ELSE
+        IF(J21.GT.1.AND.ICOUPL.EQ.1)READ(61)VRR
+        READ(71)VPR
+        READ(81)VCR
+      END IF
+      DO M=1,MM
+        IF(JCOUPL.GT.0)THEN
+          VV=VP(M)*IFACT
+          VV=VV+VC(M)*FACT
+          IF(J21.GT.1.AND.ICOUPL.EQ.1)TERM=VR(K,M)*FACTRC
+        ELSE
+          VV=VPR(M)*IFACT
+          VV=VV+VCR(M)*FACT
+          IF(J21.GT.1.AND.ICOUPL.EQ.1)TERM=VRR(K,M)*FACTRC
+        END IF
+        DO IRHS=1,NN
+          X=H(IRHS,M,1)
+          DO ILHS=1,IRHS
+            Y=H(ILHS,M,1)
+            XK(ILHS,IRHS)=XK(ILHS,IRHS)+Y*X*(VV+TERM)
+          END DO
+        END DO
+      END DO
+      IF(ITIM1A.EQ.0)THEN
+        IF(IPRINT.GT.1)CALL TIMIT(3)
+        ITIM1A=1
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE THAT1(ISTAT,NSTAT,NMODE,ISTATE,MODE,H,XQ,NN,MM,XK,KXK,
+     1NATOM,QQ,XZ,AB,B,AA,BB,RR,XX,X0,XL,XM,NPOT,IPOT,JPOT,CPOT,VP,VPR,
+     2VC,VCR,VR,VRR,J21,K)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      REAL*8 VP(MM),VC(MM),VR(J21,MM)
+      REAL*4 VPR(MM),VCR(MM),VRR(J21,MM)
+      DIMENSION ISTAT(NSTAT,NMODE),XK(KXK,KXK)
+      DIMENSION H(NN,MM,3),XQ(MM)
+      DIMENSION QQ(NMODE),XZ(NMODE,NMODE,3),AB(NMODE,3),RR(NATOM,NATOM)
+      DIMENSION B(NMODE,NMODE),AA(NMODE,3,3),BB(NMODE)
+      DIMENSION XX(NATOM,3),X0(NATOM,3),XL(NATOM,NMODE,3),XM(NATOM)
+      DIMENSION IPOT(NPOT,6),JPOT(NPOT,6),CPOT(NPOT)
+      COMMON/COUPLE/ICOUPL,JCOUPL
+      COMMON/WHICH/IWHICH
+      COMMON/FACTOR/FACTOR
+      COMMON/ROTS/JMAX
+      COMMON/TIMER/ITIM1A,ITIM1B,ITIM2A,ITIM2B,ITIM3A,ITIM3B,
+     1ITIM4A,ITIM4B,ITIM
+      COMMON/PRINT/IPRINT,JPRINT
+      COMMON/FILASS/IOUT,INP
+      IF(ITIM1B.EQ.0)THEN
+        IF(IPRINT.GT.1)THEN
+          WRITE(IOUT,*)'Calculating THAT1'
+          CALL TIMIT(1)
+        END IF
+      END IF
+      FACT=0
+      IF(ICOUPL.EQ.1)FACT=1/FACTOR
+      IFACT=1
+      IF(IWHICH.NE.0)THEN
+        IF(ICOUPL.EQ.1)IFACT=1
+        IF(ICOUPL.EQ.2)IFACT=-(NMODE-2)
+        IF(ICOUPL.EQ.3)THEN
+          IFACT=(NMODE-3)*(NMODE-1)
+          DO I=2,NMODE-2
+            IFACT=IFACT-I
+          END DO
+        END IF
+        IF(ICOUPL.EQ.4)THEN
+          IFACT=-(NMODE-4)*(NMODE-3)*(NMODE-1)
+          DO I=1,NMODE-4
+            IFACT=IFACT-I*(NMODE-3-I)
+          END DO
+          DO I=1,NMODE-4
+            IFACT=IFACT+(NMODE-2)*I
+          END DO
+          DO I=2,NMODE-2
+            IFACT=IFACT+(NMODE-4)*I
+          END DO
+        END IF
+      END IF
+      TERM=0
+      ITHAT=ISTAT(ISTATE,MODE)
+      FACTRC=FACT
+      IF(JCOUPL.GT.0)THEN
+        IF(J21.GT.1.AND.ICOUPL.EQ.1)READ(61)VR
+        READ(71)VP
+        READ(81)VC
+      ELSE
+        IF(J21.GT.1.AND.ICOUPL.EQ.1)READ(61)VRR
+        READ(71)VPR
+        READ(81)VCR
+      END IF
+      DO M=1,MM
+        IF(JCOUPL.GT.0)THEN
+          VV=VP(M)*IFACT
+          VV=VV+VC(M)*FACT
+        ELSE
+          VV=VPR(M)*IFACT
+          VV=VV+VCR(M)*FACT
+        END IF
+        X=(VV)*H(ITHAT,M,1)
+        Y=H(ITHAT,M,1)
+        TERM=TERM+Y*X
+      END DO
+      DO IRLHS=1,KXK
+        XK(IRLHS,IRLHS)=XK(IRLHS,IRLHS)+TERM
+      END DO
+      IF(J21.GT.1.AND.ICOUPL.EQ.1)THEN
+        W21=0
+        IF(JCOUPL.GT.0)THEN
+          DO M=1,MM
+            W21=W21+VR(K,M)*H(ITHAT,M,1)*H(ITHAT,M,1)
+          END DO
+        ELSE
+          DO M=1,MM
+            W21=W21+VRR(K,M)*H(ITHAT,M,1)*H(ITHAT,M,1)
+          END DO
+        END IF
+        TERM=W21*FACTRC
+        DO IRLHS=1,KXK
+          XK(IRLHS,IRLHS)=XK(IRLHS,IRLHS)+TERM
+        END DO
+      END IF
+      IF(ITIM1B.EQ.0)THEN
+        IF(IPRINT.GT.1)CALL TIMIT(3)
+        ITIM1B=1
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE THIS2A(ISTAT,NSTAT,H1,XQ1,H2,XQ2,NN1,MM1,NN2,MM2,
+     1X0,Y0,XK,
+     1NMODE,MODE1,MODE2,NATOM,QQ,XZ,AB,B,AA,BB,RR,XX,XX0,XL,XM,ISTATE,
+     2NPOT,IPOT,JPOT,CPOT,VP,VPR,VC,VCR,
+     3VR,VRR,J21,K)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      REAL*8 VP(MM2,MM1),VC(MM2,MM1,6),VR(J21,MM2,MM1)
+      REAL*4 VPR(MM2,MM1),VCR(MM2,MM1,6),VRR(J21,MM2,MM1)
+      DIMENSION ISTAT(NSTAT,NMODE),XK(NN1,NN1)
+      DIMENSION H1(NN1,MM1,3),XQ1(MM1),H2(NN2,MM2,3),XQ2(MM2)
+      DIMENSION QQ(NMODE),XZ(NMODE,NMODE,3),AB(NMODE,3),RR(NATOM,NATOM)
+      DIMENSION B(NMODE,NMODE),AA(NMODE,3,3),BB(NMODE)
+      DIMENSION XX(NATOM,3),XX0(NATOM,3),XL(NATOM,NMODE,3),XM(NATOM)
+      DIMENSION G1(3,3),XIN(3,3),XMU(3,3),SUP1(3,3),SUP2(3,3),SUP3(10)
+      DIMENSION IPOT(NPOT,6),JPOT(NPOT,6),CPOT(NPOT)
+      DIMENSION X0(4,MM1),Y0(4,MM2)
+      COMMON/COUPLE/ICOUPL,JCOUPL
+      COMMON/WHICH/IWHICH
+      COMMON/FACTOR/FACTOR
+      COMMON/TIMER/ITIM1A,ITIM1B,ITIM2A,ITIM2B,ITIM3A,ITIM3B,
+     1ITIM4A,ITIM4B,ITIM
+      COMMON/PRINT/IPRINT,JPRINT
+      COMMON/FILASS/IOUT,INP
+      IF(ITIM2A.EQ.0)THEN
+        IF(IPRINT.GT.1)THEN
+          WRITE(IOUT,*)'Calculating THIS2A'
+          CALL TIMIT(1)
+        END IF
+      END IF
+      FACT=0
+      IF(ICOUPL.EQ.2)FACT=1/FACTOR
+      IFACT=1
+      IF(IWHICH.NE.0)THEN
+        IF(ICOUPL.EQ.2)IFACT=1
+        IF(ICOUPL.EQ.3)IFACT=-(NMODE-3)
+        IF(ICOUPL.EQ.4)THEN
+          IFACT=(NMODE-4)*(NMODE-3)
+          DO I=1,NMODE-4
+            IFACT=IFACT-I
+          END DO
+        END IF
+      END IF
+      ITHAT=ISTAT(ISTATE,MODE2)
+      FACTRC=FACT
+      IF(JCOUPL.GT.0)THEN
+        IF(J21.GT.1.AND.ICOUPL.EQ.2)READ(62)VR
+        READ(72)VP
+        READ(82)VC
+      ELSE
+        IF(J21.GT.1.AND.ICOUPL.EQ.2)READ(62)VRR
+        READ(72)VPR
+        READ(82)VCR
+      END IF
+C**FORM INDIVIDUAL INTEGRATION TERMS (START)
+      DO M2=1,MM2
+        Y00=H2(ITHAT,M2,1)*IFACT
+        Y0(1,M2)=Y00*H2(ITHAT,M2,1)
+        Y0(2,M2)=Y00*H2(ITHAT,M2,2)
+        Y0(3,M2)=Y00*H2(ITHAT,M2,3)
+        Y0(4,M2)=H2(ITHAT,M2,1)*H2(ITHAT,M2,1)
+      END DO
+C**FORM INDIVIDUAL INTEGRATION TERMS (END)
+      DO M1=1,MM1
+        X1=0
+        X2=0
+        X3=0
+        W21=0
+C**INTEGRATE OVER SINGLE STATE (START)
+        IF(JCOUPL.GT.0)THEN
+          DO M2=1,MM2
+            IF(J21.GT.1.AND.ICOUPL.EQ.2)W21=W21+VR(K,M2,M1)*Y0(4,M2)
+            X1=X1+VP(M2,M1)*Y0(1,M2)
+            X1=X1-VC(M2,M1,2)*Y0(2,M2)-VC(M2,M1,5)*Y0(3,M2)
+            X1=X1+VC(M2,M1,6)*Y0(4,M2)*FACT
+            X2=X2-VC(M2,M1,1)*Y0(1,M2)-2*VC(M2,M1,4)*Y0(2,M2)
+            X3=X3-VC(M2,M1,3)*Y0(1,M2)
+          END DO
+        ELSE
+          DO M2=1,MM2
+            IF(J21.GT.1.AND.ICOUPL.EQ.2)W21=W21+VRR(K,M2,M1)*Y0(4,M2)
+            X1=X1+VPR(M2,M1)*Y0(1,M2)
+            X1=X1-VCR(M2,M1,2)*Y0(2,M2)-VCR(M2,M1,5)*Y0(3,M2)
+            X1=X1+VCR(M2,M1,6)*Y0(4,M2)*FACT
+            X2=X2-VCR(M2,M1,1)*Y0(1,M2)-2*VCR(M2,M1,4)*Y0(2,M2)
+            X3=X3-VCR(M2,M1,3)*Y0(1,M2)
+          END DO
+        END IF
+C**INTEGRATE OVER SINGLE STATE (END)
+        DO IRHS=1,NN1
+          X=X1*H1(IRHS,M1,1)+X2*H1(IRHS,M1,2)+X3*H1(IRHS,M1,3)
+          TERM=W21*H1(IRHS,M1,1)*FACTRC
+          DO ILHS=1,IRHS
+            Y=H1(ILHS,M1,1)
+            XK(ILHS,IRHS)=XK(ILHS,IRHS)+Y*(X+TERM)
+          END DO
+        END DO
+      END DO
+      IF(ITIM2A.EQ.0)THEN
+        IF(IPRINT.GT.1)CALL TIMIT(3)
+        ITIM2A=1
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE THIS2B(ISTAT,NSTAT,H1,XQ1,H2,XQ2,NN1,MM1,NN2,MM2,
+     1X0,Y0,XK,
+     1NMODE,MODE1,MODE2,NATOM,QQ,XZ,AB,B,AA,BB,RR,XX,XX0,XL,XM,ISTATE,
+     2NPOT,IPOT,JPOT,CPOT,VP,VPR,VC,VCR,
+     3VR,VRR,J21,K)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      REAL*8 VP(MM2,MM1),VC(MM2,MM1,6),VR(J21,MM2,MM1)
+      REAL*4 VPR(MM2,MM1),VCR(MM2,MM1,6),VRR(J21,MM2,MM1)
+      DIMENSION ISTAT(NSTAT,NMODE),XK(NN2,NN2)
+      DIMENSION H1(NN1,MM1,3),XQ1(MM1),H2(NN2,MM2,3),XQ2(MM2)
+      DIMENSION QQ(NMODE),XZ(NMODE,NMODE,3),AB(NMODE,3),RR(NATOM,NATOM)
+      DIMENSION B(NMODE,NMODE),AA(NMODE,3,3),BB(NMODE)
+      DIMENSION XX(NATOM,3),XX0(NATOM,3),XL(NATOM,NMODE,3),XM(NATOM)
+      DIMENSION G1(3,3),XIN(3,3),XMU(3,3),SUP1(3,3),SUP2(3,3),SUP3(10)
+      DIMENSION IPOT(NPOT,6),JPOT(NPOT,6),CPOT(NPOT)
+      DIMENSION X0(4,MM1),Y0(4,MM2)
+      COMMON/COUPLE/ICOUPL,JCOUPL
+      COMMON/WHICH/IWHICH
+      COMMON/FACTOR/FACTOR
+      COMMON/TIMER/ITIM1A,ITIM1B,ITIM2A,ITIM2B,ITIM3A,ITIM3B,
+     1ITIM4A,ITIM4B,ITIM
+      COMMON/PRINT/IPRINT,JPRINT
+      COMMON/FILASS/IOUT,INP
+      IF(ITIM2A.EQ.0)THEN
+        IF(IPRINT.GT.1)THEN
+          WRITE(IOUT,*)'Calculating THIS2B'
+          CALL TIMIT(1)
+        END IF
+      END IF
+      FACT=0
+      IF(ICOUPL.EQ.2)FACT=1/FACTOR
+      IFACT=1
+      IF(IWHICH.NE.0)THEN
+        IF(ICOUPL.EQ.2)IFACT=1
+        IF(ICOUPL.EQ.3)IFACT=-(NMODE-3)
+        IF(ICOUPL.EQ.4)THEN
+          IFACT=(NMODE-4)*(NMODE-3)
+          DO I=1,NMODE-4
+            IFACT=IFACT-I
+          END DO
+        END IF
+      END IF
+      ITHAT=ISTAT(ISTATE,MODE1)
+      FACTRC=FACT
+      IF(JCOUPL.GT.0)THEN
+        IF(J21.GT.1.AND.ICOUPL.EQ.2)READ(62)VR
+        READ(72)VP
+        READ(82)VC
+      ELSE
+        IF(J21.GT.1.AND.ICOUPL.EQ.2)READ(62)VRR
+        READ(72)VPR
+        READ(82)VCR
+      END IF
+C**FORM INDIVIDUAL INTEGRATION TERMS (START)
+      DO M1=1,MM1
+        X00=H1(ITHAT,M1,1)*IFACT
+        X0(1,M1)=X00*H1(ITHAT,M1,1)
+        X0(2,M1)=X00*H1(ITHAT,M1,2)
+        X0(3,M1)=X00*H1(ITHAT,M1,3)
+        X0(4,M1)=H1(ITHAT,M1,1)*H1(ITHAT,M1,1)
+      END DO
+C**FORM INDIVIDUAL INTEGRATION TERMS (END)
+      DO M2=1,MM2
+        Y1=0
+        Y2=0
+        Y3=0
+        W21=0
+C**INTEGRATE OVER SINGLE STATE (START)
+        IF(JCOUPL.GT.0)THEN
+          DO M1=1,MM1
+            IF(J21.GT.1.AND.ICOUPL.EQ.2)W21=W21+VR(K,M2,M1)*X0(4,M1)
+            Y1=Y1+VP(M2,M1)*X0(1,M1)
+            Y1=Y1-VC(M2,M1,1)*X0(2,M1)-VC(M2,M1,3)*X0(3,M1)
+            Y1=Y1+VC(M2,M1,6)*X0(4,M1)*FACT
+            Y2=Y2-VC(M2,M1,2)*X0(1,M1)-2*VC(M2,M1,4)*X0(2,M1)
+            Y3=Y3-VC(M2,M1,5)*X0(1,M1)
+          END DO
+        ELSE
+          DO M1=1,MM1
+            IF(J21.GT.1.AND.ICOUPL.EQ.2)W21=W21+VRR(K,M2,M1)*X0(4,M1)
+            Y1=Y1+VPR(M2,M1)*X0(1,M1)
+            Y1=Y1-VCR(M2,M1,1)*X0(2,M1)-VCR(M2,M1,3)*X0(3,M1)
+            Y1=Y1+VCR(M2,M1,6)*X0(4,M1)*FACT
+            Y2=Y2-VCR(M2,M1,2)*X0(1,M1)-2*VCR(M2,M1,4)*X0(2,M1)
+            Y3=Y3-VCR(M2,M1,5)*X0(1,M1)
+          END DO
+        END IF
+C**INTEGRATE OVER SINGLE STATE (END)
+        DO IRHS=1,NN2
+          X=Y1*H2(IRHS,M2,1)+Y2*H2(IRHS,M2,2)+Y3*H2(IRHS,M2,3)
+          TERM=W21*H2(IRHS,M2,1)*FACTRC
+          DO ILHS=1,IRHS
+            Y=H2(ILHS,M2,1)
+            XK(ILHS,IRHS)=XK(ILHS,IRHS)+Y*(X+TERM)
+          END DO
+        END DO
+      END DO
+      IF(ITIM2A.EQ.0)THEN
+        IF(IPRINT.GT.1)CALL TIMIT(3)
+        ITIM2A=1
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE THAT2(ISTAT,NSTAT,NMODE,ISTATE,MODE1,MODE2,H1,XQ1,
+     1H2,XQ2,NN1,MM1,NN2,MM2,X0,Y0,XK,KXK,NATOM,QQ,XZ,AB,B,AA,BB,RR,XX,
+     2XX0,XL,XM,NPOT,IPOT,JPOT,CPOT,VP,VPR,VC,VCR,
+     3VR,VRR,J21,K)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      REAL*8 VP(MM2,MM1),VC(MM2,MM1,6),VR(J21,MM2,MM1)
+      REAL*4 VPR(MM2,MM1),VCR(MM2,MM1,6),VRR(J21,MM2,MM1)
+      DIMENSION ISTAT(NSTAT,NMODE),XK(KXK,KXK)
+      DIMENSION H1(NN1,MM1,3),XQ1(MM1),H2(NN2,MM2,3),XQ2(MM2)
+      DIMENSION QQ(NMODE),XZ(NMODE,NMODE,3),AB(NMODE,3),RR(NATOM,NATOM)
+      DIMENSION B(NMODE,NMODE),AA(NMODE,3,3),BB(NMODE)
+      DIMENSION XX(NATOM,3),XX0(NATOM,3),XL(NATOM,NMODE,3),XM(NATOM)
+      DIMENSION IPOT(NPOT,6),JPOT(NPOT,6),CPOT(NPOT)
+      DIMENSION X0(4,MM1),Y0(4,MM2)
+      COMMON/COUPLE/ICOUPL,JCOUPL
+      COMMON/WHICH/IWHICH
+      COMMON/FACTOR/FACTOR
+      COMMON/ROTS/JMAX
+      COMMON/TIMER/ITIM1A,ITIM1B,ITIM2A,ITIM2B,ITIM3A,ITIM3B,
+     1ITIM4A,ITIM4B,ITIM
+      COMMON/PRINT/IPRINT,JPRINT
+      COMMON/FILASS/IOUT,INP
+      IF(ITIM2B.EQ.0)THEN
+        IF(IPRINT.GT.1)THEN
+          WRITE(IOUT,*)'Calculating THAT2'
+          CALL TIMIT(1)
+        END IF
+      END IF
+      FACT=0
+      IF(ICOUPL.EQ.2)FACT=1/FACTOR
+      IFACT=1
+      IF(IWHICH.NE.0)THEN
+        IF(ICOUPL.EQ.2)IFACT=1
+        IF(ICOUPL.EQ.3)IFACT=-(NMODE-3)
+        IF(ICOUPL.EQ.4)THEN
+          IFACT=(NMODE-4)*(NMODE-3)
+          DO I=1,NMODE-4
+            IFACT=IFACT-I
+          END DO
+        END IF
+      END IF
+      ITHAT1=ISTAT(ISTATE,MODE1)
+      ITHAT2=ISTAT(ISTATE,MODE2)
+      FACTRC=FACT
+      IF(JCOUPL.GT.0)THEN
+        IF(J21.GT.1.AND.ICOUPL.EQ.2)READ(62)VR
+        READ(72)VP
+        READ(82)VC
+      ELSE
+        IF(J21.GT.1.AND.ICOUPL.EQ.2)READ(62)VRR
+        READ(72)VPR
+        READ(82)VCR
+      END IF
+C**FORM INDIVIDUAL INTEGRATION TERMS (START)
+      DO M1=1,MM1
+        X00=H1(ITHAT1,M1,1)*IFACT
+        X0(1,M1)=X00*H1(ITHAT1,M1,1)
+        X0(2,M1)=X00*H1(ITHAT1,M1,2)
+        X0(3,M1)=X00*H1(ITHAT1,M1,3)
+        X0(4,M1)=H1(ITHAT1,M1,1)*H1(ITHAT1,M1,1)
+      END DO
+      DO M2=1,MM2
+        Y00=H2(ITHAT2,M2,1)
+        Y0(1,M2)=Y00*H2(ITHAT2,M2,1)
+        Y0(2,M2)=Y00*H2(ITHAT2,M2,2)
+        Y0(3,M2)=Y00*H2(ITHAT2,M2,3)
+        Y0(4,M2)=H2(ITHAT2,M2,1)*H2(ITHAT2,M2,1)
+      END DO
+C**FORM INDIVIDUAL INTEGRATION TERMS (END)
+      TERM=0
+      IF(JCOUPL.GT.0)THEN
+        DO M1=1,MM1
+          DO M2=1,MM2
+            X=VP(M2,M1)*X0(1,M1)*Y0(1,M2)
+            X=X-VC(M2,M1,1)*X0(2,M1)*Y0(1,M2)-
+     1      VC(M2,M1,2)*X0(1,M1)*Y0(2,M2)-
+     2      VC(M2,M1,3)*X0(3,M1)*Y0(1,M2)-
+     3      2*VC(M2,M1,4)*X0(2,M1)*Y0(2,M2)-
+     4      VC(M2,M1,5)*X0(1,M1)*Y0(3,M2)
+            X=X+VC(M2,M1,6)*X0(4,M1)*Y0(1,M2)*FACT
+            TERM=TERM+X
+          END DO
+        END DO
+      ELSE
+        DO M1=1,MM1
+          DO M2=1,MM2
+            X=VPR(M2,M1)*X0(1,M1)*Y0(1,M2)
+            X=X-VCR(M2,M1,1)*X0(2,M1)*Y0(1,M2)-
+     1      VCR(M2,M1,2)*X0(1,M1)*Y0(2,M2)-
+     2      VCR(M2,M1,3)*X0(3,M1)*Y0(1,M2)-
+     3      2*VCR(M2,M1,4)*X0(2,M1)*Y0(2,M2)-
+     4      VCR(M2,M1,5)*X0(1,M1)*Y0(3,M2)
+            X=X+VCR(M2,M1,6)*X0(4,M1)*Y0(1,M2)*FACT
+            TERM=TERM+X
+          END DO
+        END DO
+      END IF
+      DO IRLHS=1,KXK
+        XK(IRLHS,IRLHS)=XK(IRLHS,IRLHS)+TERM
+      END DO
+      IF(J21.GT.1.AND.ICOUPL.EQ.2)THEN
+        W21=0
+        IF(JCOUPL.GT.0)THEN
+          DO M1=1,MM1
+            DO M2=1,MM2
+              W21=W21+VR(K,M2,M1)*X0(4,M1)*Y0(4,M2)
+            END DO
+          END DO
+        ELSE
+          DO M1=1,MM1
+            DO M2=1,MM2
+              W21=W21+VRR(K,M2,M1)*X0(4,M1)*Y0(4,M2)
+            END DO
+          END DO
+        END IF
+        TERM=W21*FACTRC
+        DO IRLHS=1,KXK
+          XK(IRLHS,IRLHS)=XK(IRLHS,IRLHS)+TERM
+        END DO
+      END IF
+      IF(ITIM2B.EQ.0)THEN
+        IF(IPRINT.GT.1)CALL TIMIT(3)
+        ITIM2B=1
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE THIS3A(ISTAT,NSTAT,H1,XQ1,H2,XQ2,H3,XQ3,NN1,MM1,NN2,
+     1MM2,NN3,MM3,
+     2X0,Y0,Z0,XK,NMODE,MODE1,MODE2,MODE3,NATOM,QQ,XZ,AB,B,AA,BB,RR,
+     2XX,XX0,XL,XM,ISTATE,NPOT,IPOT,JPOT,CPOT,VP,VPR,VC,VCR,
+     3VR,VRR,J21,K)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      REAL*8 VP(MM3,MM2,MM1),VC(MM3,MM2,MM1,10),VR(J21,MM3,MM2,MM1)
+      REAL*4 VPR(MM3,MM2,MM1),VCR(MM3,MM2,MM1,10),VRR(J21,MM3,MM2,MM1)
+      DIMENSION ISTAT(NSTAT,NMODE),XK(NN1,NN1)
+      DIMENSION H1(NN1,MM1,3),XQ1(MM1),H2(NN2,MM2,3),XQ2(MM2)
+      DIMENSION H3(NN3,MM3,3),XQ3(MM3)
+      DIMENSION QQ(NMODE),XZ(NMODE,NMODE,3),AB(NMODE,3),RR(NATOM,NATOM)
+      DIMENSION B(NMODE,NMODE),AA(NMODE,3,3),BB(NMODE)
+      DIMENSION XX(NATOM,3),XX0(NATOM,3),XL(NATOM,NMODE,3),XM(NATOM)
+      DIMENSION G1(3,3),XIN(3,3),XMU(3,3),SUP1(3,3),SUP2(3,3),SUP3(10)
+      DIMENSION IPOT(NPOT,6),JPOT(NPOT,6),CPOT(NPOT)
+      DIMENSION X0(4,MM1),Y0(4,MM2),Z0(4,MM3)
+      COMMON/COUPLE/ICOUPL,JCOUPL
+      COMMON/WHICH/IWHICH
+      COMMON/FACTOR/FACTOR
+      COMMON/TIMER/ITIM1A,ITIM1B,ITIM2A,ITIM2B,ITIM3A,ITIM3B,
+     1ITIM4A,ITIM4B,ITIM
+      COMMON/PRINT/IPRINT,JPRINT
+      COMMON/FILASS/IOUT,INP
+      IF(ITIM3A.EQ.0)THEN
+        IF(IPRINT.GT.1)THEN
+          WRITE(IOUT,*)'Calculating THIS3A'
+          CALL TIMIT(1)
+        END IF
+      END IF
+      FACT=0
+      IF(ICOUPL.EQ.3)FACT=1/FACTOR
+      IFACT=1
+      IF(IWHICH.NE.0)THEN
+        IF(ICOUPL.EQ.3)IFACT=1
+        IF(ICOUPL.EQ.4)IFACT=-(NMODE-4)
+      END IF
+      ITHAT2=ISTAT(ISTATE,MODE2)
+      ITHAT3=ISTAT(ISTATE,MODE3)
+      FACTRC=FACT
+      IF(JCOUPL.GT.0)THEN
+        IF(J21.GT.1.AND.ICOUPL.EQ.3)READ(63)VR
+        READ(73)VP
+        READ(83)VC
+      ELSE
+        IF(J21.GT.1.AND.ICOUPL.EQ.3)READ(63)VRR
+        READ(73)VPR
+        READ(83)VCR
+      END IF
+C**FORM INDIVIDUAL INTEGRATION TERMS (START)
+      DO M2=1,MM2
+        Y00=H2(ITHAT2,M2,1)*IFACT
+        Y0(1,M2)=Y00*H2(ITHAT2,M2,1)
+        Y0(2,M2)=Y00*H2(ITHAT2,M2,2)
+        Y0(3,M2)=Y00*H2(ITHAT2,M2,3)
+        Y0(4,M2)=H2(ITHAT2,M2,1)*H2(ITHAT2,M2,1)
+      END DO
+      DO M3=1,MM3
+        Z00=H3(ITHAT3,M3,1)
+        Z0(1,M3)=Z00*H3(ITHAT3,M3,1)
+        Z0(2,M3)=Z00*H3(ITHAT3,M3,2)
+        Z0(3,M3)=Z00*H3(ITHAT3,M3,3)
+        Z0(4,M3)=H3(ITHAT3,M3,1)*H3(ITHAT3,M3,1)
+      END DO
+C**FORM INDIVIDUAL INTEGRATION TERMS (END)
+      DO M1=1,MM1
+        X1=0
+        X2=0
+        X3=0
+        W21=0
+C**INTEGRATE OVER SINGLE STATES (START)
+        IF(JCOUPL.GT.0)THEN
+          DO M2=1,MM2
+            DO M3=1,MM3
+              IF(J21.GT.1.AND.ICOUPL.EQ.3)
+     1        W21=W21+VR(K,M3,M2,M1)*Y0(4,M2)*Z0(4,M3)
+              X1=X1+VP(M3,M2,M1)*Y0(1,M2)*Z0(1,M3)
+              X1=X1-VC(M3,M2,M1,2)*Y0(2,M2)*Z0(1,M3)-
+     1        VC(M3,M2,M1,3)*Y0(1,M2)*Z0(2,M3)-VC(M3,M2,M1,7)*Y0(3,M2)*
+     1        Z0(1,M3)-
+     2        2*VC(M3,M2,M1,8)*Y0(2,M2)*Z0(2,M3)-
+     3        VC(M3,M2,M1,9)*Y0(1,M2)*Z0(3,M3)
+              X1=X1+VC(M3,M2,M1,10)*Y0(4,M2)*Z0(1,M3)*FACT
+              X2=X2-VC(M3,M2,M1,1)*Y0(1,M2)*Z0(1,M3)-2*VC(M3,M2,M1,5)*
+     1        Y0(2,M2)*Z0(1,M3)-
+     2        2*VC(M3,M2,M1,6)*Y0(1,M2)*Z0(2,M3)
+              X3=X3-VC(M3,M2,M1,4)*Y0(1,M2)*Z0(1,M3)
+            END DO
+          END DO
+        ELSE
+          DO M2=1,MM2
+            DO M3=1,MM3
+              IF(J21.GT.1.AND.ICOUPL.EQ.3)
+     1        W21=W21+VRR(K,M3,M2,M1)*Y0(4,M2)*Z0(4,M3)
+              X1=X1+VPR(M3,M2,M1)*Y0(1,M2)*Z0(1,M3)
+              X1=X1-VCR(M3,M2,M1,2)*Y0(2,M2)*Z0(1,M3)-
+     1        VCR(M3,M2,M1,3)*Y0(1,M2)*Z0(2,M3)-
+     2        VCR(M3,M2,M1,7)*Y0(3,M2)*Z0(1,M3)-
+     2        2*VCR(M3,M2,M1,8)*Y0(2,M2)*Z0(2,M3)-
+     3        VCR(M3,M2,M1,9)*Y0(1,M2)*Z0(3,M3)
+              X1=X1+VCR(M3,M2,M1,10)*Y0(4,M2)*Z0(1,M3)*FACT
+              X2=X2-VCR(M3,M2,M1,1)*Y0(1,M2)*Z0(1,M3)-
+     1        2*VCR(M3,M2,M1,5)*Y0(2,M2)*Z0(1,M3)-
+     2        2*VCR(M3,M2,M1,6)*Y0(1,M2)*Z0(2,M3)
+              X3=X3-VCR(M3,M2,M1,4)*Y0(1,M2)*Z0(1,M3)
+            END DO
+          END DO
+        END IF
+C**INTEGRATE OVER SINGLE STATES (END)
+        DO IRHS=1,NN1
+          X=X1*H1(IRHS,M1,1)+X2*H1(IRHS,M1,2)+X3*H1(IRHS,M1,3)
+          TERM=W21*H1(IRHS,M1,1)*FACTRC
+          DO ILHS=1,IRHS
+            Y=H1(ILHS,M1,1)
+            XK(ILHS,IRHS)=XK(ILHS,IRHS)+Y*(X+TERM)
+          END DO
+        END DO
+      END DO
+      IF(ITIM3A.EQ.0)THEN
+        IF(IPRINT.GT.1)CALL TIMIT(3)
+        ITIM3A=1
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE THIS3B(ISTAT,NSTAT,H1,XQ1,H2,XQ2,H3,XQ3,NN1,MM1,NN2,
+     1MM2,NN3,MM3,
+     2X0,Y0,Z0,XK,NMODE,MODE1,MODE2,MODE3,NATOM,QQ,XZ,AB,B,AA,BB,RR,
+     2XX,XX0,XL,XM,ISTATE,NPOT,IPOT,JPOT,CPOT,VP,VPR,VC,VCR,
+     3VR,VRR,J21,K)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      REAL*8 VP(MM3,MM2,MM1),VC(MM3,MM2,MM1,10),VR(J21,MM3,MM2,MM1)
+      REAL*4 VPR(MM3,MM2,MM1),VCR(MM3,MM2,MM1,10),VRR(J21,MM3,MM2,MM1)
+      DIMENSION ISTAT(NSTAT,NMODE),XK(NN2,NN2)
+      DIMENSION H1(NN1,MM1,3),XQ1(MM1),H2(NN2,MM2,3),XQ2(MM2)
+      DIMENSION H3(NN3,MM3,3),XQ3(MM3)
+      DIMENSION QQ(NMODE),XZ(NMODE,NMODE,3),AB(NMODE,3),RR(NATOM,NATOM)
+      DIMENSION B(NMODE,NMODE),AA(NMODE,3,3),BB(NMODE)
+      DIMENSION XX(NATOM,3),XX0(NATOM,3),XL(NATOM,NMODE,3),XM(NATOM)
+      DIMENSION G1(3,3),XIN(3,3),XMU(3,3),SUP1(3,3),SUP2(3,3),SUP3(10)
+      DIMENSION IPOT(NPOT,6),JPOT(NPOT,6),CPOT(NPOT)
+      DIMENSION X0(4,MM1),Y0(4,MM2),Z0(4,MM3)
+      COMMON/COUPLE/ICOUPL,JCOUPL
+      COMMON/WHICH/IWHICH
+      COMMON/FACTOR/FACTOR
+      COMMON/TIMER/ITIM1A,ITIM1B,ITIM2A,ITIM2B,ITIM3A,ITIM3B,
+     1ITIM4A,ITIM4B,ITIM
+      COMMON/PRINT/IPRINT,JPRINT
+      COMMON/FILASS/IOUT,INP
+      IF(ITIM3A.EQ.0)THEN
+        IF(IPRINT.GT.1)THEN
+          WRITE(IOUT,*)'Calculating THIS3B'
+          CALL TIMIT(1)
+        END IF
+      END IF
+      FACT=0
+      IF(ICOUPL.EQ.3)FACT=1/FACTOR
+      IFACT=1
+      IF(IWHICH.NE.0)THEN
+        IF(ICOUPL.EQ.3)IFACT=1
+        IF(ICOUPL.EQ.4)IFACT=-(NMODE-4)
+      END IF
+      ITHAT1=ISTAT(ISTATE,MODE1)
+      ITHAT3=ISTAT(ISTATE,MODE3)
+      FACTRC=FACT
+      IF(JCOUPL.GT.0)THEN
+        IF(J21.GT.1.AND.ICOUPL.EQ.3)READ(63)VR
+        READ(73)VP
+        READ(83)VC
+      ELSE
+        IF(J21.GT.1.AND.ICOUPL.EQ.3)READ(63)VRR
+        READ(73)VPR
+        READ(83)VCR
+      END IF
+C**FORM INDIVIDUAL INTEGRATION TERMS (START)
+      DO M1=1,MM1
+        X00=H1(ITHAT1,M1,1)*IFACT
+        X0(1,M1)=X00*H1(ITHAT1,M1,1)
+        X0(2,M1)=X00*H1(ITHAT1,M1,2)
+        X0(3,M1)=X00*H1(ITHAT1,M1,3)
+        X0(4,M1)=H1(ITHAT1,M1,1)*H1(ITHAT1,M1,1)
+      END DO
+      DO M3=1,MM3
+        Z00=H3(ITHAT3,M3,1)
+        Z0(1,M3)=Z00*H3(ITHAT3,M3,1)
+        Z0(2,M3)=Z00*H3(ITHAT3,M3,2)
+        Z0(3,M3)=Z00*H3(ITHAT3,M3,3)
+        Z0(4,M3)=H3(ITHAT3,M3,1)*H3(ITHAT3,M3,1)
+      END DO
+C**FORM INDIVIDUAL INTEGRATION TERMS (END)
+      DO M2=1,MM2
+        Y1=0
+        Y2=0
+        Y3=0
+        W21=0
+C**INTEGRATE OVER SINGLE STATES (START)
+        IF(JCOUPL.GT.0)THEN
+          DO M1=1,MM1
+            DO M3=1,MM3
+              IF(J21.GT.1.AND.ICOUPL.EQ.3)
+     1        W21=W21+VR(K,M3,M2,M1)*X0(4,M1)*Z0(4,M3)
+              Y1=Y1+VP(M3,M2,M1)*X0(1,M1)*Z0(1,M3)
+              Y1=Y1-VC(M3,M2,M1,1)*X0(2,M1)*Z0(1,M3)-
+     1        VC(M3,M2,M1,3)*X0(1,M1)*Z0(2,M3)-VC(M3,M2,M1,4)*X0(3,M1)*
+     1        Z0(1,M3)-
+     2        2*VC(M3,M2,M1,6)*X0(2,M1)*Z0(2,M3)-
+     3        VC(M3,M2,M1,9)*X0(1,M1)*Z0(3,M3)
+              Y1=Y1+VC(M3,M2,M1,10)*X0(4,M1)*Z0(1,M3)*FACT
+              Y2=Y2-VC(M3,M2,M1,2)*X0(1,M1)*Z0(1,M3)-2*VC(M3,M2,M1,5)*
+     1        X0(2,M1)*Z0(1,M3)-
+     2        2*VC(M3,M2,M1,8)*X0(1,M1)*Z0(2,M3)
+              Y3=Y3-VC(M3,M2,M1,7)*X0(1,M1)*Z0(1,M3)
+            END DO
+          END DO
+        ELSE
+          DO M1=1,MM1
+            DO M3=1,MM3
+              IF(J21.GT.1.AND.ICOUPL.EQ.3)
+     1        W21=W21+VRR(K,M3,M2,M1)*X0(4,M1)*Z0(4,M3)
+              Y1=Y1+VPR(M3,M2,M1)*X0(1,M1)*Z0(1,M3)
+              Y1=Y1-VCR(M3,M2,M1,1)*X0(2,M1)*Z0(1,M3)-
+     1        VCR(M3,M2,M1,3)*X0(1,M1)*Z0(2,M3)-
+     2        VCR(M3,M2,M1,4)*X0(3,M1)*Z0(1,M3)-
+     2        2*VCR(M3,M2,M1,6)*X0(2,M1)*Z0(2,M3)-
+     3        VCR(M3,M2,M1,9)*X0(1,M1)*Z0(3,M3)
+              Y1=Y1+VCR(M3,M2,M1,10)*X0(4,M1)*Z0(1,M3)*FACT
+              Y2=Y2-VCR(M3,M2,M1,2)*X0(1,M1)*Z0(1,M3)-
+     1        2*VCR(M3,M2,M1,5)*X0(2,M1)*Z0(1,M3)-
+     2        2*VCR(M3,M2,M1,8)*X0(1,M1)*Z0(2,M3)
+              Y3=Y3-VCR(M3,M2,M1,7)*X0(1,M1)*Z0(1,M3)
+            END DO
+          END DO
+        END IF
+C**INTEGRATE OVER SINGLE STATES (END)
+        DO IRHS=1,NN2
+          X=Y1*H2(IRHS,M2,1)+Y2*H2(IRHS,M2,2)+Y3*H2(IRHS,M2,3)
+          TERM=W21*H2(IRHS,M2,1)*FACTRC
+          DO ILHS=1,IRHS
+            Y=H2(ILHS,M2,1)
+            XK(ILHS,IRHS)=XK(ILHS,IRHS)+Y*(X+TERM)
+          END DO
+        END DO
+      END DO
+      IF(ITIM3A.EQ.0)THEN
+        IF(IPRINT.GT.1)CALL TIMIT(3)
+        ITIM3A=1
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE THIS3C(ISTAT,NSTAT,H1,XQ1,H2,XQ2,H3,XQ3,NN1,MM1,NN2,
+     1MM2,NN3,MM3,
+     2X0,Y0,Z0,XK,NMODE,MODE1,MODE2,MODE3,NATOM,QQ,XZ,AB,B,AA,BB,RR,
+     2XX,XX0,XL,XM,ISTATE,NPOT,IPOT,JPOT,CPOT,VP,VPR,VC,VCR,
+     3VR,VRR,J21,K)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      REAL*8 VP(MM3,MM2,MM1),VC(MM3,MM2,MM1,10),VR(J21,MM3,MM2,MM1)
+      REAL*4 VPR(MM3,MM2,MM1),VCR(MM3,MM2,MM1,10),VRR(J21,MM3,MM2,MM1)
+      DIMENSION ISTAT(NSTAT,NMODE),XK(NN3,NN3)
+      DIMENSION H1(NN1,MM1,3),XQ1(MM1),H2(NN2,MM2,3),XQ2(MM2)
+      DIMENSION H3(NN3,MM3,3),XQ3(MM3)
+      DIMENSION QQ(NMODE),XZ(NMODE,NMODE,3),AB(NMODE,3),RR(NATOM,NATOM)
+      DIMENSION B(NMODE,NMODE),AA(NMODE,3,3),BB(NMODE)
+      DIMENSION XX(NATOM,3),XX0(NATOM,3),XL(NATOM,NMODE,3),XM(NATOM)
+      DIMENSION G1(3,3),XIN(3,3),XMU(3,3),SUP1(3,3),SUP2(3,3),SUP3(10)
+      DIMENSION IPOT(NPOT,6),JPOT(NPOT,6),CPOT(NPOT)
+      DIMENSION X0(4,MM1),Y0(4,MM2),Z0(4,MM3)
+      COMMON/COUPLE/ICOUPL,JCOUPL
+      COMMON/WHICH/IWHICH
+      COMMON/FACTOR/FACTOR
+      COMMON/TIMER/ITIM1A,ITIM1B,ITIM2A,ITIM2B,ITIM3A,ITIM3B,
+     1ITIM4A,ITIM4B,ITIM
+      COMMON/PRINT/IPRINT,JPRINT
+      COMMON/FILASS/IOUT,INP
+      IF(ITIM3A.EQ.0)THEN
+        IF(IPRINT.GT.1)THEN
+          WRITE(IOUT,*)'Calculating THIS3C'
+          CALL TIMIT(1)
+        END IF
+      END IF
+      FACT=0
+      IF(ICOUPL.EQ.3)FACT=1/FACTOR
+      IFACT=1
+      IF(IWHICH.NE.0)THEN
+        IF(ICOUPL.EQ.3)IFACT=1
+        IF(ICOUPL.EQ.4)IFACT=-(NMODE-4)
+      END IF
+      ITHAT1=ISTAT(ISTATE,MODE1)
+      ITHAT2=ISTAT(ISTATE,MODE2)
+      FACTRC=FACT
+      IF(JCOUPL.GT.0)THEN
+        IF(J21.GT.1.AND.ICOUPL.EQ.3)READ(63)VR
+        READ(73)VP
+        READ(83)VC
+      ELSE
+        IF(J21.GT.1.AND.ICOUPL.EQ.3)READ(63)VRR
+        READ(73)VPR
+        READ(83)VCR
+      END IF
+C**FORM INDIVIDUAL INTEGRATION TERMS (START)
+      DO M1=1,MM1
+        X00=H1(ITHAT1,M1,1)*IFACT
+        X0(1,M1)=X00*H1(ITHAT1,M1,1)
+        X0(2,M1)=X00*H1(ITHAT1,M1,2)
+        X0(3,M1)=X00*H1(ITHAT1,M1,3)
+        X0(4,M1)=H1(ITHAT1,M1,1)*H1(ITHAT1,M1,1)
+      END DO
+      DO M2=1,MM2
+        Y00=H2(ITHAT2,M2,1)
+        Y0(1,M2)=Y00*H2(ITHAT2,M2,1)
+        Y0(2,M2)=Y00*H2(ITHAT2,M2,2)
+        Y0(3,M2)=Y00*H2(ITHAT2,M2,3)
+        Y0(4,M2)=H2(ITHAT2,M2,1)*H2(ITHAT2,M2,1)
+      END DO
+C**FORM INDIVIDUAL INTEGRATION TERMS (END)
+      DO M3=1,MM3
+        Z1=0
+        Z2=0
+        Z3=0
+        W21=0
+C**INTEGRATE OVER SINGLE STATES (START)
+        IF(JCOUPL.GT.0)THEN
+          DO M1=1,MM1
+            DO M2=1,MM2
+              IF(J21.GT.1.AND.ICOUPL.EQ.3)
+     1        W21=W21+VR(K,M3,M2,M1)*X0(4,M1)*Y0(4,M2)
+              Z1=Z1+VP(M3,M2,M1)*X0(1,M1)*Y0(1,M2)
+              Z1=Z1-VC(M3,M2,M1,1)*X0(2,M1)*Y0(1,M2)-
+     1        VC(M3,M2,M1,2)*X0(1,M1)*Y0(2,M2)-VC(M3,M2,M1,4)*X0(3,M1)*
+     1        Y0(1,M2)-
+     2        2*VC(M3,M2,M1,5)*X0(2,M1)*Y0(2,M2)-
+     3        VC(M3,M2,M1,7)*X0(1,M1)*Y0(3,M2)
+              Z1=Z1+VC(M3,M2,M1,10)*X0(4,M1)*Y0(1,M2)*FACT
+              Z2=Z2-VC(M3,M2,M1,3)*X0(1,M1)*Y0(1,M2)-2*VC(M3,M2,M1,6)*
+     1        X0(2,M1)*Y0(1,M2)-
+     1        2*VC(M3,M2,M1,8)*X0(1,M1)*Y0(2,M2)
+              Z3=Z3-VC(M3,M2,M1,9)*X0(1,M1)*Y0(1,M2)
+            END DO
+          END DO
+        ELSE
+          DO M1=1,MM1
+            DO M2=1,MM2
+              IF(J21.GT.1.AND.ICOUPL.EQ.3)
+     1        W21=W21+VRR(K,M3,M2,M1)*X0(4,M1)*Y0(4,M2)
+              Z1=Z1+VPR(M3,M2,M1)*X0(1,M1)*Y0(1,M2)
+              Z1=Z1-VCR(M3,M2,M1,1)*X0(2,M1)*Y0(1,M2)-
+     1        VCR(M3,M2,M1,2)*X0(1,M1)*Y0(2,M2)-
+     2        VCR(M3,M2,M1,4)*X0(3,M1)*Y0(1,M2)-
+     2        2*VCR(M3,M2,M1,5)*X0(2,M1)*Y0(2,M2)-
+     3        VCR(M3,M2,M1,7)*X0(1,M1)*Y0(3,M2)
+              Z1=Z1+VCR(M3,M2,M1,10)*X0(4,M1)*Y0(1,M2)*FACT
+              Z2=Z2-VCR(M3,M2,M1,3)*X0(1,M1)*Y0(1,M2)-
+     1        2*VCR(M3,M2,M1,6)*X0(2,M1)*Y0(1,M2)-
+     1        2*VCR(M3,M2,M1,8)*X0(1,M1)*Y0(2,M2)
+              Z3=Z3-VCR(M3,M2,M1,9)*X0(1,M1)*Y0(1,M2)
+            END DO
+          END DO
+        END IF
+C**INTEGRATE OVER SINGLE STATES (END)
+        DO IRHS=1,NN3
+          X=Z1*H3(IRHS,M3,1)+Z2*H3(IRHS,M3,2)+Z3*H3(IRHS,M3,3)
+          TERM=W21*H3(IRHS,M3,1)*FACTRC
+          DO ILHS=1,IRHS
+            Y=H3(ILHS,M3,1)
+            XK(ILHS,IRHS)=XK(ILHS,IRHS)+Y*(X+TERM)
+          END DO
+        END DO
+      END DO
+      IF(ITIM3A.EQ.0)THEN
+        IF(IPRINT.GT.1)CALL TIMIT(3)
+        ITIM3A=1
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE THAT3(ISTAT,NSTAT,NMODE,ISTATE,MODE1,MODE2,MODE3,H1,
+     1XQ1,H2,XQ2,H3,XQ3,NN1,MM1,NN2,MM2,NN3,MM3,X0,Y0,Z0,
+     2XK,KXK,NATOM,QQ,XZ,AB,B,AA,BB,RR,XX,XX0,XL,XM,NPOT,IPOT,JPOT,
+     3CPOT,VP,VPR,VC,VCR,VR,VRR,J21,K)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      REAL*8 VP(MM3,MM2,MM1),VC(MM3,MM2,MM1,10),VR(J21,MM3,MM2,MM1)
+      REAL*4 VPR(MM3,MM2,MM1),VCR(MM3,MM2,MM1,10),VRR(J21,MM3,MM2,MM1)
+      DIMENSION ISTAT(NSTAT,NMODE),XK(KXK,KXK)
+      DIMENSION H1(NN1,MM1,3),XQ1(MM1),H2(NN2,MM2,3),XQ2(MM2)
+      DIMENSION H3(NN3,MM3,3),XQ3(MM3)
+      DIMENSION QQ(NMODE),XZ(NMODE,NMODE,3),AB(NMODE,3),RR(NATOM,NATOM)
+      DIMENSION B(NMODE,NMODE),AA(NMODE,3,3),BB(NMODE)
+      DIMENSION XX(NATOM,3),XX0(NATOM,3),XL(NATOM,NMODE,3),XM(NATOM)
+      DIMENSION IPOT(NPOT,6),JPOT(NPOT,6),CPOT(NPOT)
+      DIMENSION X0(4,MM1),Y0(4,MM2),Z0(4,MM3)
+      COMMON/COUPLE/ICOUPL,JCOUPL
+      COMMON/ROTS/JMAX
+      COMMON/WHICH/IWHICH
+      COMMON/FACTOR/FACTOR
+      COMMON/TIMER/ITIM1A,ITIM1B,ITIM2A,ITIM2B,ITIM3A,ITIM3B,
+     1ITIM4A,ITIM4B,ITIM
+      COMMON/PRINT/IPRINT,JPRINT
+      COMMON/FILASS/IOUT,INP
+      IF(ITIM3B.EQ.0)THEN
+        IF(IPRINT.GT.1)THEN
+          WRITE(IOUT,*)'Calculating THAT3'
+          CALL TIMIT(1)
+        END IF
+      END IF
+      FACT=0
+      IF(ICOUPL.EQ.3)FACT=1/FACTOR
+      IFACT=1
+      IF(IWHICH.NE.0)THEN
+        IF(ICOUPL.EQ.3)IFACT=1
+        IF(ICOUPL.EQ.4)IFACT=-(NMODE-4)
+      END IF
+      ITHAT1=ISTAT(ISTATE,MODE1)
+      ITHAT2=ISTAT(ISTATE,MODE2)
+      ITHAT3=ISTAT(ISTATE,MODE3)
+      FACTRC=FACT
+      IF(JCOUPL.GT.0)THEN
+        IF(J21.GT.1.AND.ICOUPL.EQ.3)READ(63)VR
+        READ(73)VP
+        READ(83)VC
+      ELSE
+        IF(J21.GT.1.AND.ICOUPL.EQ.3)READ(63)VRR
+        READ(73)VPR
+        READ(83)VCR
+      END IF
+C**FORM INDIVIDUAL INTEGRATION TERMS (START)
+      DO M1=1,MM1
+        X00=H1(ITHAT1,M1,1)*IFACT
+        X0(1,M1)=X00*H1(ITHAT1,M1,1)
+        X0(2,M1)=X00*H1(ITHAT1,M1,2)
+        X0(3,M1)=X00*H1(ITHAT1,M1,3)
+        X0(4,M1)=H1(ITHAT1,M1,1)*H1(ITHAT1,M1,1)
+      END DO
+      DO M2=1,MM2
+        Y00=H2(ITHAT2,M2,1)
+        Y0(1,M2)=Y00*H2(ITHAT2,M2,1)
+        Y0(2,M2)=Y00*H2(ITHAT2,M2,2)
+        Y0(3,M2)=Y00*H2(ITHAT2,M2,3)
+        Y0(4,M2)=H2(ITHAT2,M2,1)*H2(ITHAT2,M2,1)
+      END DO
+      DO M3=1,MM3
+        Z00=H3(ITHAT3,M3,1)
+        Z0(1,M3)=Z00*H3(ITHAT3,M3,1)
+        Z0(2,M3)=Z00*H3(ITHAT3,M3,2)
+        Z0(3,M3)=Z00*H3(ITHAT3,M3,3)
+        Z0(4,M3)=H3(ITHAT3,M3,1)*H3(ITHAT3,M3,1)
+      END DO
+C**FORM INDIVIDUAL INTEGRATION TERMS (END)
+      TERM=0
+      IF(JCOUPL.GT.0)THEN
+        DO M1=1,MM1
+          DO M2=1,MM2
+            DO M3=1,MM3
+              X=VP(M3,M2,M1)*X0(1,M1)*Y0(1,M2)*Z0(1,M3)
+              X=X-VC(M3,M2,M1,1)*X0(2,M1)*Y0(1,M2)*Z0(1,M3)-
+     1        VC(M3,M2,M1,2)*X0(1,M1)*Y0(2,M2)*Z0(1,M3)-
+     2        VC(M3,M2,M1,3)*X0(1,M1)*Y0(1,M2)*Z0(2,M3)-
+     2        VC(M3,M2,M1,4)*X0(3,M1)*Y0(1,M2)*Z0(1,M3)-
+     3        2*VC(M3,M2,M1,5)*X0(2,M1)*Y0(2,M2)*Z0(1,M3)-
+     3        2*VC(M3,M2,M1,6)*X0(2,M1)*Y0(1,M2)*Z0(2,M3)-
+     4        VC(M3,M2,M1,7)*X0(1,M1)*Y0(3,M2)*Z0(1,M3)-
+     5        2*VC(M3,M2,M1,8)*X0(1,M1)*Y0(2,M2)*Z0(2,M3)-
+     6        VC(M3,M2,M1,9)*X0(1,M1)*Y0(1,M2)*Z0(3,M3)
+              X=X+VC(M3,M2,M1,10)*X0(4,M1)*Y0(1,M2)*Z0(1,M3)*FACT
+              TERM=TERM+X
+            END DO
+          END DO
+        END DO
+      ELSE
+        DO M1=1,MM1
+          DO M2=1,MM2
+            DO M3=1,MM3
+              X=VPR(M3,M2,M1)*X0(1,M1)*Y0(1,M2)*Z0(1,M3)
+              X=X-VCR(M3,M2,M1,1)*X0(2,M1)*Y0(1,M2)*Z0(1,M3)-
+     1        VCR(M3,M2,M1,2)*X0(1,M1)*Y0(2,M2)*Z0(1,M3)-
+     2        VCR(M3,M2,M1,3)*X0(1,M1)*Y0(1,M2)*Z0(2,M3)-
+     2        VCR(M3,M2,M1,4)*X0(3,M1)*Y0(1,M2)*Z0(1,M3)-
+     3        2*VCR(M3,M2,M1,5)*X0(2,M1)*Y0(2,M2)*Z0(1,M3)-
+     3        2*VCR(M3,M2,M1,6)*X0(2,M1)*Y0(1,M2)*Z0(2,M3)-
+     4        VCR(M3,M2,M1,7)*X0(1,M1)*Y0(3,M2)*Z0(1,M3)-
+     5        2*VCR(M3,M2,M1,8)*X0(1,M1)*Y0(2,M2)*Z0(2,M3)-
+     6        VCR(M3,M2,M1,9)*X0(1,M1)*Y0(1,M2)*Z0(3,M3)
+              X=X+VCR(M3,M2,M1,10)*X0(4,M1)*Y0(1,M2)*Z0(1,M3)*FACT
+              TERM=TERM+X
+            END DO
+          END DO
+        END DO
+      END IF
+      DO IRLHS=1,KXK
+        XK(IRLHS,IRLHS)=XK(IRLHS,IRLHS)+TERM
+      END DO
+      IF(J21.GT.1.AND.ICOUPL.EQ.3)THEN
+        W21=0
+        IF(JCOUPL.GT.0)THEN
+          DO M1=1,MM1
+            DO M2=1,MM2
+              DO M3=1,MM3
+                W21=W21+VR(K,M3,M2,M1)*X0(4,M1)*Y0(4,M2)*Z0(4,M3)
+              END DO
+            END DO
+          END DO
+        ELSE
+          DO M1=1,MM1
+            DO M2=1,MM2
+              DO M3=1,MM3
+                W21=W21+VRR(K,M3,M2,M1)*X0(4,M1)*Y0(4,M2)*Z0(4,M3)
+              END DO
+            END DO
+          END DO
+        END IF
+        TERM=W21*FACTRC
+        DO IRLHS=1,KXK
+          XK(IRLHS,IRLHS)=XK(IRLHS,IRLHS)+TERM
+        END DO
+      END IF
+      IF(ITIM3B.EQ.0)THEN
+        IF(IPRINT.GT.1)CALL TIMIT(3)
+        ITIM3B=1
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE THIS4A(ISTAT,NSTAT,H1,XQ1,H2,XQ2,H3,XQ3,H4,XQ4,NN1,
+     1MM1,NN2,MM2,NN3,MM3,NN4,MM4,
+     2X0,Y0,Z0,W0,XK,NMODE,MODE1,MODE2,MODE3,MODE4,
+     2NATOM,QQ,XZ,AB,B,AA,BB,RR,XX,XX0,XL,XM,ISTATE,NPOT,IPOT,JPOT,
+     3CPOT,VP,VPR,VC,VCR,VR,VRR,J21,K)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      REAL*8 VP(MM4,MM3,MM2,MM1),VC(MM4,MM3,MM2,MM1,15),
+     1VR(J21,MM4,MM3,MM2,MM1)
+      REAL*4 VPR(MM4,MM3,MM2,MM1),VCR(MM4,MM3,MM2,MM1,15),
+     1VRR(J21,MM4,MM3,MM2,MM1)
+      DIMENSION ISTAT(NSTAT,NMODE),XK(NN1,NN1)
+      DIMENSION H1(NN1,MM1,3),XQ1(MM1),H2(NN2,MM2,3),XQ2(MM2)
+      DIMENSION H3(NN3,MM3,3),XQ3(MM3),H4(NN4,MM4,3),XQ4(MM4)
+      DIMENSION QQ(NMODE),XZ(NMODE,NMODE,3),AB(NMODE,3),RR(NATOM,NATOM)
+      DIMENSION B(NMODE,NMODE),AA(NMODE,3,3),BB(NMODE)
+      DIMENSION XX(NATOM,3),XX0(NATOM,3),XL(NATOM,NMODE,3),XM(NATOM)
+      DIMENSION G1(3,3),XIN(3,3),XMU(3,3),SUP1(3,3),SUP2(3,3),SUP3(10)
+      DIMENSION IPOT(NPOT,6),JPOT(NPOT,6),CPOT(NPOT)
+      DIMENSION X0(4,MM1),Y0(4,MM2),Z0(4,MM3),W0(4,MM4)
+      COMMON/COUPLE/ICOUPL,JCOUPL
+      COMMON/WHICH/IWHICH
+      COMMON/FACTOR/FACTOR
+      COMMON/TIMER/ITIM1A,ITIM1B,ITIM2A,ITIM2B,ITIM3A,ITIM3B,
+     1ITIM4A,ITIM4B,ITIM
+      COMMON/PRINT/IPRINT,JPRINT
+      COMMON/FILASS/IOUT,INP
+      IF(ITIM4A.EQ.0)THEN
+        IF(IPRINT.GT.1)THEN
+          WRITE(IOUT,*)'Calculating THIS4A'
+          CALL TIMIT(1)
+        END IF
+      END IF
+      FACT=0
+      IF(ICOUPL.EQ.4)FACT=1/FACTOR
+      IFACT=1
+      IF(IWHICH.NE.0)THEN
+        IF(ICOUPL.EQ.4)IFACT=1
+      END IF
+      ITHAT2=ISTAT(ISTATE,MODE2)
+      ITHAT3=ISTAT(ISTATE,MODE3)
+      ITHAT4=ISTAT(ISTATE,MODE4)
+      FACTRC=FACT
+      IF(JCOUPL.GT.0)THEN
+        IF(J21.GT.1.AND.ICOUPL.EQ.4)READ(64)VR
+        READ(74)VP
+        READ(84)VC
+      ELSE
+        IF(J21.GT.1.AND.ICOUPL.EQ.4)READ(64)VRR
+        READ(74)VPR
+        READ(84)VCR
+      END IF
+C**FORM INDIVIDUAL INTEGRATION TERMS (START)
+      DO M2=1,MM2
+        Y00=H2(ITHAT2,M2,1)*IFACT
+        Y0(1,M2)=Y00*H2(ITHAT2,M2,1)
+        Y0(2,M2)=Y00*H2(ITHAT2,M2,2)
+        Y0(3,M2)=Y00*H2(ITHAT2,M2,3)
+        Y0(4,M2)=H2(ITHAT2,M2,1)*H2(ITHAT2,M2,1)
+      END DO
+      DO M3=1,MM3
+        Z00=H3(ITHAT3,M3,1)
+        Z0(1,M3)=Z00*H3(ITHAT3,M3,1)
+        Z0(2,M3)=Z00*H3(ITHAT3,M3,2)
+        Z0(3,M3)=Z00*H3(ITHAT3,M3,3)
+        Z0(4,M3)=H3(ITHAT3,M3,1)*H3(ITHAT3,M3,1)
+      END DO
+      DO M4=1,MM4
+        W00=H4(ITHAT4,M4,1)
+        W0(1,M4)=W00*H4(ITHAT4,M4,1)
+        W0(2,M4)=W00*H4(ITHAT4,M4,2)
+        W0(3,M4)=W00*H4(ITHAT4,M4,3)
+        W0(4,M4)=H4(ITHAT4,M4,1)*H4(ITHAT4,M4,1)
+      END DO
+C**FORM INDIVIDUAL INTEGRATION TERMS (END)
+      DO M1=1,MM1
+        X1=0
+        X2=0
+        X3=0
+        W21=0
+C**INTEGRATE OVER SINGLE STATES (START)
+        IF(JCOUPL.GT.0)THEN
+          DO M2=1,MM2
+            DO M3=1,MM3
+              DO M4=1,MM4
+                IF(J21.GT.1.AND.ICOUPL.EQ.4)
+     1          W21=W21+VR(K,M4,M3,M2,M1)*Y0(4,M2)*Z0(4,M3)*W0(4,M4)
+                X1=X1+VP(M4,M3,M2,M1)*Y0(1,M2)*Z0(1,M3)*W0(1,M4)
+                X1=X1-VC(M4,M3,M2,M1,2)*Y0(2,M2)*Z0(1,M3)*W0(1,M4)-
+     1          VC(M4,M3,M2,M1,3)*Y0(1,M2)*Z0(2,M3)*W0(1,M4)-
+     2          VC(M4,M3,M2,M1,4)*Y0(1,M2)*Z0(1,M3)*W0(2,M4)-
+     2          VC(M4,M3,M2,M1,9)*Y0(3,M2)*Z0(1,M3)*W0(1,M4)-
+     3          2*VC(M4,M3,M2,M1,10)*Y0(2,M2)*Z0(2,M3)*W0(1,M4)-
+     3          2*VC(M4,M3,M2,M1,11)*Y0(2,M2)*Z0(1,M3)*W0(2,M4)-
+     4          VC(M4,M3,M2,M1,12)*Y0(1,M2)*Z0(3,M3)*W0(1,M4)-
+     5          2*VC(M4,M3,M2,M1,13)*Y0(1,M2)*Z0(2,M3)*W0(2,M4)-
+     6          VC(M4,M3,M2,M1,14)*Y0(1,M2)*Z0(1,M3)*W0(3,M4)
+                X1=X1+
+     1          VC(M4,M3,M2,M1,15)*Y0(4,M2)*Z0(1,M3)*W0(1,M4)*FACT
+                X2=X2-VC(M4,M3,M2,M1,1)*Y0(1,M2)*Z0(1,M3)*W0(1,M4)
+     1          -2*VC(M4,M3,M2,M1,6)*Y0(2,M2)*Z0(1,M3)*W0(1,M4)
+     2          -2*VC(M4,M3,M2,M1,7)*Y0(1,M2)*Z0(2,M3)*W0(1,M4)-
+     3          2*VC(M4,M3,M2,M1,8)*Y0(1,M2)*Z0(1,M3)*W0(2,M4)
+                X3=X3-VC(M4,M3,M2,M1,5)*Y0(1,M2)*Z0(1,M3)*W0(1,M4)
+              END DO
+            END DO
+          END DO
+        ELSE
+          DO M2=1,MM2
+            DO M3=1,MM3
+              DO M4=1,MM4
+                IF(J21.GT.1.AND.ICOUPL.EQ.4)
+     1          W21=W21+VRR(K,M4,M3,M2,M1)*Y0(4,M2)*Z0(4,M3)*W0(4,M4)
+                X1=X1+VPR(M4,M3,M2,M1)*Y0(1,M2)*Z0(1,M3)*W0(1,M4)
+                X1=X1-VCR(M4,M3,M2,M1,2)*Y0(2,M2)*Z0(1,M3)*W0(1,M4)-
+     1          VCR(M4,M3,M2,M1,3)*Y0(1,M2)*Z0(2,M3)*W0(1,M4)-
+     2          VCR(M4,M3,M2,M1,4)*Y0(1,M2)*Z0(1,M3)*W0(2,M4)-
+     2          VCR(M4,M3,M2,M1,9)*Y0(3,M2)*Z0(1,M3)*W0(1,M4)-
+     3          2*VCR(M4,M3,M2,M1,10)*Y0(2,M2)*Z0(2,M3)*W0(1,M4)-
+     3          2*VCR(M4,M3,M2,M1,11)*Y0(2,M2)*Z0(1,M3)*W0(2,M4)-
+     4          VCR(M4,M3,M2,M1,12)*Y0(1,M2)*Z0(3,M3)*W0(1,M4)-
+     5          2*VCR(M4,M3,M2,M1,13)*Y0(1,M2)*Z0(2,M3)*W0(2,M4)-
+     6          VCR(M4,M3,M2,M1,14)*Y0(1,M2)*Z0(1,M3)*W0(3,M4)
+                X1=X1+
+     1          VCR(M4,M3,M2,M1,15)*Y0(4,M2)*Z0(1,M3)*W0(1,M4)*FACT
+                X2=X2-VCR(M4,M3,M2,M1,1)*Y0(1,M2)*Z0(1,M3)*W0(1,M4)
+     1          -2*VCR(M4,M3,M2,M1,6)*Y0(2,M2)*Z0(1,M3)*W0(1,M4)
+     2          -2*VCR(M4,M3,M2,M1,7)*Y0(1,M2)*Z0(2,M3)*W0(1,M4)-
+     3          2*VCR(M4,M3,M2,M1,8)*Y0(1,M2)*Z0(1,M3)*W0(2,M4)
+                X3=X3-VCR(M4,M3,M2,M1,5)*Y0(1,M2)*Z0(1,M3)*W0(1,M4)
+              END DO
+            END DO
+          END DO
+        END IF
+C**INTEGRATE OVER SINGLE STATES (END)
+        DO IRHS=1,NN1
+          X=X1*H1(IRHS,M1,1)+X2*H1(IRHS,M1,2)+X3*H1(IRHS,M1,3)
+          TERM=W21*H1(IRHS,M1,1)*FACTRC
+          DO ILHS=1,IRHS
+            Y=H1(ILHS,M1,1)
+            XK(ILHS,IRHS)=XK(ILHS,IRHS)+Y*(X+TERM)
+          END DO
+        END DO
+      END DO
+      IF(ITIM4A.EQ.0)THEN
+        IF(IPRINT.GT.1)CALL TIMIT(3)
+        ITIM4A=1
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE THIS4B(ISTAT,NSTAT,H1,XQ1,H2,XQ2,H3,XQ3,H4,XQ4,NN1,
+     1MM1,NN2,MM2,NN3,MM3,NN4,MM4,
+     2X0,Y0,Z0,W0,XK,NMODE,MODE1,MODE2,MODE3,MODE4,
+     2NATOM,QQ,XZ,AB,B,AA,BB,RR,XX,XX0,XL,XM,ISTATE,NPOT,IPOT,JPOT,
+     3CPOT,VP,VPR,VC,VCR,VR,VRR,J21,K)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      REAL*8 VP(MM4,MM3,MM2,MM1),VC(MM4,MM3,MM2,MM1,15),
+     1VR(J21,MM4,MM3,MM2,MM1)
+      REAL*4 VPR(MM4,MM3,MM2,MM1),VCR(MM4,MM3,MM2,MM1,15),
+     1VRR(J21,MM4,MM3,MM2,MM1)
+      DIMENSION ISTAT(NSTAT,NMODE),XK(NN2,NN2)
+      DIMENSION H1(NN1,MM1,3),XQ1(MM1),H2(NN2,MM2,3),XQ2(MM2)
+      DIMENSION H3(NN3,MM3,3),XQ3(MM3),H4(NN4,MM4,3),XQ4(MM4)
+      DIMENSION QQ(NMODE),XZ(NMODE,NMODE,3),AB(NMODE,3),RR(NATOM,NATOM)
+      DIMENSION B(NMODE,NMODE),AA(NMODE,3,3),BB(NMODE)
+      DIMENSION XX(NATOM,3),XX0(NATOM,3),XL(NATOM,NMODE,3),XM(NATOM)
+      DIMENSION G1(3,3),XIN(3,3),XMU(3,3),SUP1(3,3),SUP2(3,3),SUP3(10)
+      DIMENSION IPOT(NPOT,6),JPOT(NPOT,6),CPOT(NPOT)
+      DIMENSION X0(4,MM1),Y0(4,MM2),Z0(4,MM3),W0(4,MM4)
+      COMMON/COUPLE/ICOUPL,JCOUPL
+      COMMON/WHICH/IWHICH
+      COMMON/FACTOR/FACTOR
+      COMMON/TIMER/ITIM1A,ITIM1B,ITIM2A,ITIM2B,ITIM3A,ITIM3B,
+     1ITIM4A,ITIM4B,ITIM
+      COMMON/PRINT/IPRINT,JPRINT
+      COMMON/FILASS/IOUT,INP
+      IF(ITIM4A.EQ.0)THEN
+        IF(IPRINT.GT.1)THEN
+          WRITE(IOUT,*)'Calculating THIS4B'
+          CALL TIMIT(1)
+        END IF
+      END IF
+      FACT=0
+      IF(ICOUPL.EQ.4)FACT=1/FACTOR
+      IFACT=1
+      IF(IWHICH.NE.0)THEN
+        IF(ICOUPL.EQ.4)IFACT=1
+      END IF
+      ITHAT1=ISTAT(ISTATE,MODE1)
+      ITHAT3=ISTAT(ISTATE,MODE3)
+      ITHAT4=ISTAT(ISTATE,MODE4)
+      FACTRC=FACT
+      IF(JCOUPL.GT.0)THEN
+        IF(J21.GT.1.AND.ICOUPL.EQ.4)READ(64)VR
+        READ(74)VP
+        READ(84)VC
+      ELSE
+        IF(J21.GT.1.AND.ICOUPL.EQ.4)READ(64)VRR
+        READ(74)VPR
+        READ(84)VCR
+      END IF
+C**FORM INDIVIDUAL INTEGRATION TERMS (START)
+      DO M1=1,MM1
+        X00=H1(ITHAT1,M1,1)*IFACT
+        X0(1,M1)=X00*H1(ITHAT1,M1,1)
+        X0(2,M1)=X00*H1(ITHAT1,M1,2)
+        X0(3,M1)=X00*H1(ITHAT1,M1,3)
+        X0(4,M1)=H1(ITHAT1,M1,1)*H1(ITHAT1,M1,1)
+      END DO
+      DO M3=1,MM3
+        Z00=H3(ITHAT3,M3,1)
+        Z0(1,M3)=Z00*H3(ITHAT3,M3,1)
+        Z0(2,M3)=Z00*H3(ITHAT3,M3,2)
+        Z0(3,M3)=Z00*H3(ITHAT3,M3,3)
+        Z0(4,M3)=H3(ITHAT3,M3,1)*H3(ITHAT3,M3,1)
+      END DO
+      DO M4=1,MM4
+        W00=H4(ITHAT4,M4,1)
+        W0(1,M4)=W00*H4(ITHAT4,M4,1)
+        W0(2,M4)=W00*H4(ITHAT4,M4,2)
+        W0(3,M4)=W00*H4(ITHAT4,M4,3)
+        W0(4,M4)=H4(ITHAT4,M4,1)*H4(ITHAT4,M4,1)
+      END DO
+C**FORM INDIVIDUAL INTEGRATION TERMS (END)
+      DO M2=1,MM2
+        Y1=0
+        Y2=0
+        Y3=0
+        W21=0
+C**INTEGRATE OVER SINGLE STATES (START)
+        IF(JCOUPL.GT.0)THEN
+          DO M1=1,MM1
+            DO M3=1,MM3
+              DO M4=1,MM4
+                IF(J21.GT.1.AND.ICOUPL.EQ.4)
+     1          W21=W21+VR(K,M4,M3,M2,M1)*X0(4,M1)*Z0(4,M3)*W0(4,M4)
+                Y1=Y1+VP(M4,M3,M2,M1)*X0(1,M1)*Z0(1,M3)*W0(1,M4)
+                Y1=Y1-VC(M4,M3,M2,M1,1)*X0(2,M1)*Z0(1,M3)*W0(1,M4)-
+     1          VC(M4,M3,M2,M1,3)*X0(1,M1)*Z0(2,M3)*W0(1,M4)-
+     2          VC(M4,M3,M2,M1,4)*X0(1,M1)*Z0(1,M3)*W0(2,M4)-
+     2          VC(M4,M3,M2,M1,5)*X0(3,M1)*Z0(1,M3)*W0(1,M4)-
+     3          2*VC(M4,M3,M2,M1,7)*X0(2,M1)*Z0(2,M3)*W0(1,M4)-
+     3          2*VC(M4,M3,M2,M1,8)*X0(2,M1)*Z0(1,M3)*W0(2,M4)-
+     4          VC(M4,M3,M2,M1,12)*X0(1,M1)*Z0(3,M3)*W0(1,M4)-
+     5          2*VC(M4,M3,M2,M1,13)*X0(1,M1)*Z0(2,M3)*W0(2,M4)-
+     6          VC(M4,M3,M2,M1,14)*X0(1,M1)*Z0(1,M3)*W0(3,M4)
+                Y1=Y1+
+     1          VC(M4,M3,M2,M1,15)*X0(4,M1)*Z0(1,M3)*W0(1,M4)*FACT
+                Y2=Y2-VC(M4,M3,M2,M1,2)*X0(1,M1)*Z0(1,M3)*W0(1,M4)
+     1          -2*VC(M4,M3,M2,M1,6)*X0(2,M1)*Z0(1,M3)*W0(1,M4)-
+     3          2*VC(M4,M3,M2,M1,10)*X0(1,M1)*Z0(2,M3)*W0(1,M4)-
+     3          2*VC(M4,M3,M2,M1,11)*X0(1,M1)*Z0(1,M3)*W0(2,M4)
+                Y3=Y3-VC(M4,M3,M2,M1,9)*X0(1,M1)*Z0(1,M3)*W0(1,M4)
+              END DO
+            END DO
+          END DO
+        ELSE
+          DO M1=1,MM1
+            DO M3=1,MM3
+              DO M4=1,MM4
+                IF(J21.GT.1.AND.ICOUPL.EQ.4)
+     1          W21=W21+VRR(K,M4,M3,M2,M1)*X0(4,M1)*Z0(4,M3)*W0(4,M4)
+                Y1=Y1+VPR(M4,M3,M2,M1)*X0(1,M1)*Z0(1,M3)*W0(1,M4)
+                Y1=Y1-VCR(M4,M3,M2,M1,1)*X0(2,M1)*Z0(1,M3)*W0(1,M4)-
+     1          VCR(M4,M3,M2,M1,3)*X0(1,M1)*Z0(2,M3)*W0(1,M4)-
+     2          VCR(M4,M3,M2,M1,4)*X0(1,M1)*Z0(1,M3)*W0(2,M4)-
+     2          VCR(M4,M3,M2,M1,5)*X0(3,M1)*Z0(1,M3)*W0(1,M4)-
+     3          2*VCR(M4,M3,M2,M1,7)*X0(2,M1)*Z0(2,M3)*W0(1,M4)-
+     3          2*VCR(M4,M3,M2,M1,8)*X0(2,M1)*Z0(1,M3)*W0(2,M4)-
+     4          VCR(M4,M3,M2,M1,12)*X0(1,M1)*Z0(3,M3)*W0(1,M4)-
+     5          2*VCR(M4,M3,M2,M1,13)*X0(1,M1)*Z0(2,M3)*W0(2,M4)-
+     6          VCR(M4,M3,M2,M1,14)*X0(1,M1)*Z0(1,M3)*W0(3,M4)
+                Y1=Y1+
+     1          VCR(M4,M3,M2,M1,15)*X0(4,M1)*Z0(1,M3)*W0(1,M4)*FACT
+                Y2=Y2-VCR(M4,M3,M2,M1,2)*X0(1,M1)*Z0(1,M3)*W0(1,M4)
+     1          -2*VCR(M4,M3,M2,M1,6)*X0(2,M1)*Z0(1,M3)*W0(1,M4)-
+     3          2*VCR(M4,M3,M2,M1,10)*X0(1,M1)*Z0(2,M3)*W0(1,M4)-
+     3          2*VCR(M4,M3,M2,M1,11)*X0(1,M1)*Z0(1,M3)*W0(2,M4)
+                Y3=Y3-VCR(M4,M3,M2,M1,9)*X0(1,M1)*Z0(1,M3)*W0(1,M4)
+              END DO
+            END DO
+          END DO
+        END IF
+C**INTEGRATE OVER SINGLE STATES (END)
+        DO IRHS=1,NN2
+          X=Y1*H2(IRHS,M2,1)+Y2*H2(IRHS,M2,2)+Y3*H2(IRHS,M2,3)
+          TERM=W21*H2(IRHS,M2,1)*FACTRC
+          DO ILHS=1,IRHS
+            Y=H2(ILHS,M2,1)
+            XK(ILHS,IRHS)=XK(ILHS,IRHS)+Y*(X+TERM)
+          END DO
+        END DO
+      END DO
+      IF(ITIM4A.EQ.0)THEN
+        IF(IPRINT.GT.1)CALL TIMIT(3)
+        ITIM4A=1
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE THIS4C(ISTAT,NSTAT,H1,XQ1,H2,XQ2,H3,XQ3,H4,XQ4,NN1,
+     1MM1,NN2,MM2,NN3,MM3,NN4,MM4,
+     2X0,Y0,Z0,W0,XK,NMODE,MODE1,MODE2,MODE3,MODE4,
+     2NATOM,QQ,XZ,AB,B,AA,BB,RR,XX,XX0,XL,XM,ISTATE,NPOT,IPOT,JPOT,
+     3CPOT,VP,VPR,VC,VCR,VR,VRR,J21,K)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      REAL*8 VP(MM4,MM3,MM2,MM1),VC(MM4,MM3,MM2,MM1,15),
+     1VR(J21,MM4,MM3,MM2,MM1)
+      REAL*4 VPR(MM4,MM3,MM2,MM1),VCR(MM4,MM3,MM2,MM1,15),
+     1VRR(J21,MM4,MM3,MM2,MM1)
+      DIMENSION ISTAT(NSTAT,NMODE),XK(NN3,NN3)
+      DIMENSION H1(NN1,MM1,3),XQ1(MM1),H2(NN2,MM2,3),XQ2(MM2)
+      DIMENSION H3(NN3,MM3,3),XQ3(MM3),H4(NN4,MM4,3),XQ4(MM4)
+      DIMENSION QQ(NMODE),XZ(NMODE,NMODE,3),AB(NMODE,3),RR(NATOM,NATOM)
+      DIMENSION B(NMODE,NMODE),AA(NMODE,3,3),BB(NMODE)
+      DIMENSION XX(NATOM,3),XX0(NATOM,3),XL(NATOM,NMODE,3),XM(NATOM)
+      DIMENSION G1(3,3),XIN(3,3),XMU(3,3),SUP1(3,3),SUP2(3,3),SUP3(10)
+      DIMENSION IPOT(NPOT,6),JPOT(NPOT,6),CPOT(NPOT)
+      DIMENSION X0(4,MM1),Y0(4,MM2),Z0(4,MM3),W0(4,MM4)
+      COMMON/COUPLE/ICOUPL,JCOUPL
+      COMMON/WHICH/IWHICH
+      COMMON/FACTOR/FACTOR
+      COMMON/TIMER/ITIM1A,ITIM1B,ITIM2A,ITIM2B,ITIM3A,ITIM3B,
+     1ITIM4A,ITIM4B,ITIM
+      COMMON/PRINT/IPRINT,JPRINT
+      COMMON/FILASS/IOUT,INP
+      IF(ITIM4A.EQ.0)THEN
+        IF(IPRINT.GT.1)THEN
+          WRITE(IOUT,*)'Calculating THIS4C'
+          CALL TIMIT(1)
+        END IF
+      END IF
+      FACT=0
+      IF(ICOUPL.EQ.4)FACT=1/FACTOR
+      IFACT=1
+      IF(IWHICH.NE.0)THEN
+        IF(ICOUPL.EQ.4)IFACT=1
+      END IF
+      ITHAT1=ISTAT(ISTATE,MODE1)
+      ITHAT2=ISTAT(ISTATE,MODE2)
+      ITHAT4=ISTAT(ISTATE,MODE4)
+      FACTRC=FACT
+      IF(JCOUPL.GT.0)THEN
+        IF(J21.GT.1.AND.ICOUPL.EQ.4)READ(64)VR
+        READ(74)VP
+        READ(84)VC
+      ELSE
+        IF(J21.GT.1.AND.ICOUPL.EQ.4)READ(64)VRR
+        READ(74)VPR
+        READ(84)VCR
+      END IF
+C**FORM INDIVIDUAL INTEGRATION TERMS (START)
+      DO M1=1,MM1
+        X00=H1(ITHAT1,M1,1)*IFACT
+        X0(1,M1)=X00*H1(ITHAT1,M1,1)
+        X0(2,M1)=X00*H1(ITHAT1,M1,2)
+        X0(3,M1)=X00*H1(ITHAT1,M1,3)
+        X0(4,M1)=H1(ITHAT1,M1,1)*H1(ITHAT1,M1,1)
+      END DO
+      DO M2=1,MM2
+        Y00=H2(ITHAT2,M2,1)
+        Y0(1,M2)=Y00*H2(ITHAT2,M2,1)
+        Y0(2,M2)=Y00*H2(ITHAT2,M2,2)
+        Y0(3,M2)=Y00*H2(ITHAT2,M2,3)
+        Y0(4,M2)=H2(ITHAT2,M2,1)*H2(ITHAT2,M2,1)
+      END DO
+      DO M4=1,MM4
+        W00=H4(ITHAT4,M4,1)
+        W0(1,M4)=W00*H4(ITHAT4,M4,1)
+        W0(2,M4)=W00*H4(ITHAT4,M4,2)
+        W0(3,M4)=W00*H4(ITHAT4,M4,3)
+        W0(4,M4)=H4(ITHAT4,M4,1)*H4(ITHAT4,M4,1)
+      END DO
+C**FORM INDIVIDUAL INTEGRATION TERMS (END)
+      DO M3=1,MM3
+        Z1=0
+        Z2=0
+        Z3=0
+        W21=0
+C**INTEGRATE OVER SINGLE STATES (START)
+        IF(JCOUPL.GT.0)THEN
+          DO M1=1,MM1
+            DO M2=1,MM2
+              DO M4=1,MM4
+                IF(J21.GT.1.AND.ICOUPL.EQ.4)
+     1          W21=W21+VR(K,M4,M3,M2,M1)*X0(4,M1)*Y0(4,M2)*W0(4,M4)
+                Z1=Z1+VP(M4,M3,M2,M1)*X0(1,M1)*Y0(1,M2)*W0(1,M4)
+                Z1=Z1-VC(M4,M3,M2,M1,1)*X0(2,M1)*Y0(1,M2)*W0(1,M4)-
+     1          VC(M4,M3,M2,M1,2)*X0(1,M1)*Y0(2,M2)*W0(1,M4)-
+     2          VC(M4,M3,M2,M1,4)*X0(1,M1)*Y0(1,M2)*W0(2,M4)-
+     2          VC(M4,M3,M2,M1,5)*X0(3,M1)*Y0(1,M2)*W0(1,M4)-
+     3          2*VC(M4,M3,M2,M1,6)*X0(2,M1)*Y0(2,M2)*W0(1,M4)-
+     3          2*VC(M4,M3,M2,M1,8)*X0(2,M1)*Y0(1,M2)*W0(2,M4)-
+     4          VC(M4,M3,M2,M1,9)*X0(1,M1)*Y0(3,M2)*W0(1,M4)-
+     5          2*VC(M4,M3,M2,M1,11)*X0(1,M1)*Y0(2,M2)*W0(2,M4)-
+     6          VC(M4,M3,M2,M1,14)*X0(1,M1)*Y0(1,M2)*W0(3,M4)
+                Z1=Z1+
+     1          VC(M4,M3,M2,M1,15)*X0(4,M1)*Y0(1,M2)*W0(1,M4)*FACT
+                Z2=Z2-VC(M4,M3,M2,M1,3)*X0(1,M1)*Y0(1,M2)*W0(1,M4)
+     1          -2*VC(M4,M3,M2,M1,7)*X0(2,M1)*Y0(1,M2)*W0(1,M4)
+     2          -2*VC(M4,M3,M2,M1,10)*X0(1,M1)*Y0(2,M2)*W0(1,M4)-
+     4          2*VC(M4,M3,M2,M1,13)*X0(1,M1)*Y0(1,M2)*W0(2,M4)
+                Z3=Z3-VC(M4,M3,M2,M1,12)*X0(1,M1)*Y0(1,M2)*W0(1,M4)
+              END DO
+            END DO
+          END DO
+        ELSE
+          DO M1=1,MM1
+            DO M2=1,MM2
+              DO M4=1,MM4
+                IF(J21.GT.1.AND.ICOUPL.EQ.4)
+     1          W21=W21+VRR(K,M4,M3,M2,M1)*X0(4,M1)*Y0(4,M2)*W0(4,M4)
+                Z1=Z1+VPR(M4,M3,M2,M1)*X0(1,M1)*Y0(1,M2)*W0(1,M4)
+                Z1=Z1-VCR(M4,M3,M2,M1,1)*X0(2,M1)*Y0(1,M2)*W0(1,M4)-
+     1          VCR(M4,M3,M2,M1,2)*X0(1,M1)*Y0(2,M2)*W0(1,M4)-
+     2          VCR(M4,M3,M2,M1,4)*X0(1,M1)*Y0(1,M2)*W0(2,M4)-
+     2          VCR(M4,M3,M2,M1,5)*X0(3,M1)*Y0(1,M2)*W0(1,M4)-
+     3          2*VCR(M4,M3,M2,M1,6)*X0(2,M1)*Y0(2,M2)*W0(1,M4)-
+     3          2*VCR(M4,M3,M2,M1,8)*X0(2,M1)*Y0(1,M2)*W0(2,M4)-
+     4          VCR(M4,M3,M2,M1,9)*X0(1,M1)*Y0(3,M2)*W0(1,M4)-
+     5          2*VCR(M4,M3,M2,M1,11)*X0(1,M1)*Y0(2,M2)*W0(2,M4)-
+     6          VCR(M4,M3,M2,M1,14)*X0(1,M1)*Y0(1,M2)*W0(3,M4)
+                Z1=Z1+
+     1          VCR(M4,M3,M2,M1,15)*X0(4,M1)*Y0(1,M2)*W0(1,M4)*FACT
+                Z2=Z2-VCR(M4,M3,M2,M1,3)*X0(1,M1)*Y0(1,M2)*W0(1,M4)
+     1          -2*VCR(M4,M3,M2,M1,7)*X0(2,M1)*Y0(1,M2)*W0(1,M4)
+     2          -2*VCR(M4,M3,M2,M1,10)*X0(1,M1)*Y0(2,M2)*W0(1,M4)-
+     4          2*VCR(M4,M3,M2,M1,13)*X0(1,M1)*Y0(1,M2)*W0(2,M4)
+                Z3=Z3-VCR(M4,M3,M2,M1,12)*X0(1,M1)*Y0(1,M2)*W0(1,M4)
+              END DO
+            END DO
+          END DO
+        END IF
+C**INTEGRATE OVER SINGLE STATES (END)
+        DO IRHS=1,NN3
+          X=Z1*H3(IRHS,M3,1)+Z2*H3(IRHS,M3,2)+Z3*H3(IRHS,M3,3)
+          TERM=W21*H3(IRHS,M3,1)*FACTRC
+          DO ILHS=1,IRHS
+            Y=H3(ILHS,M3,1)
+            XK(ILHS,IRHS)=XK(ILHS,IRHS)+Y*(X+TERM)
+          END DO
+        END DO
+      END DO
+      IF(ITIM4A.EQ.0)THEN
+        IF(IPRINT.GT.1)CALL TIMIT(3)
+        ITIM4A=1
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE THIS4D(ISTAT,NSTAT,H1,XQ1,H2,XQ2,H3,XQ3,H4,XQ4,NN1,
+     1MM1,NN2,MM2,NN3,MM3,NN4,MM4,
+     2X0,Y0,Z0,W0,XK,NMODE,MODE1,MODE2,MODE3,MODE4,
+     2NATOM,QQ,XZ,AB,B,AA,BB,RR,XX,XX0,XL,XM,ISTATE,NPOT,IPOT,JPOT,
+     3CPOT,VP,VPR,VC,VCR,VR,VRR,J21,K)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      REAL*8 VP(MM4,MM3,MM2,MM1),VC(MM4,MM3,MM2,MM1,15),
+     1VR(J21,MM4,MM3,MM2,MM1)
+      REAL*4 VPR(MM4,MM3,MM2,MM1),VCR(MM4,MM3,MM2,MM1,15),
+     1VRR(J21,MM4,MM3,MM2,MM1)
+      DIMENSION ISTAT(NSTAT,NMODE),XK(NN4,NN4)
+      DIMENSION H1(NN1,MM1,3),XQ1(MM1),H2(NN2,MM2,3),XQ2(MM2)
+      DIMENSION H3(NN3,MM3,3),XQ3(MM3),H4(NN4,MM4,3),XQ4(MM4)
+      DIMENSION QQ(NMODE),XZ(NMODE,NMODE,3),AB(NMODE,3),RR(NATOM,NATOM)
+      DIMENSION B(NMODE,NMODE),AA(NMODE,3,3),BB(NMODE)
+      DIMENSION XX(NATOM,3),XX0(NATOM,3),XL(NATOM,NMODE,3),XM(NATOM)
+      DIMENSION G1(3,3),XIN(3,3),XMU(3,3),SUP1(3,3),SUP2(3,3),SUP3(10)
+      DIMENSION IPOT(NPOT,6),JPOT(NPOT,6),CPOT(NPOT)
+      DIMENSION X0(4,MM1),Y0(4,MM2),Z0(4,MM3),W0(4,MM4)
+      COMMON/COUPLE/ICOUPL,JCOUPL
+      COMMON/WHICH/IWHICH
+      COMMON/FACTOR/FACTOR
+      COMMON/TIMER/ITIM1A,ITIM1B,ITIM2A,ITIM2B,ITIM3A,ITIM3B,
+     1ITIM4A,ITIM4B,ITIM
+      COMMON/PRINT/IPRINT,JPRINT
+      COMMON/FILASS/IOUT,INP
+      IF(ITIM4A.EQ.0)THEN
+        IF(IPRINT.GT.1)THEN
+          WRITE(IOUT,*)'Calculating THIS4D'
+          CALL TIMIT(1)
+        END IF
+      END IF
+      FACT=0
+      IF(ICOUPL.EQ.4)FACT=1/FACTOR
+      IFACT=1
+      IF(IWHICH.NE.0)THEN
+        IF(ICOUPL.EQ.4)IFACT=1
+      END IF
+      ITHAT1=ISTAT(ISTATE,MODE1)
+      ITHAT2=ISTAT(ISTATE,MODE2)
+      ITHAT3=ISTAT(ISTATE,MODE3)
+      FACTRC=FACT
+      IF(JCOUPL.GT.0)THEN
+        IF(J21.GT.1.AND.ICOUPL.EQ.4)READ(64)VR
+        READ(74)VP
+        READ(84)VC
+      ELSE
+        IF(J21.GT.1.AND.ICOUPL.EQ.4)READ(64)VRR
+        READ(74)VPR
+        READ(84)VCR
+      END IF
+C**FORM INDIVIDUAL INTEGRATION TERMS (START)
+      DO M1=1,MM1
+        X00=H1(ITHAT1,M1,1)*IFACT
+        X0(1,M1)=X00*H1(ITHAT1,M1,1)
+        X0(2,M1)=X00*H1(ITHAT1,M1,2)
+        X0(3,M1)=X00*H1(ITHAT1,M1,3)
+        X0(4,M1)=H1(ITHAT1,M1,1)*H1(ITHAT1,M1,1)
+      END DO
+      DO M2=1,MM2
+        Y00=H2(ITHAT2,M2,1)
+        Y0(1,M2)=Y00*H2(ITHAT2,M2,1)
+        Y0(2,M2)=Y00*H2(ITHAT2,M2,2)
+        Y0(3,M2)=Y00*H2(ITHAT2,M2,3)
+        Y0(4,M2)=H2(ITHAT2,M2,1)*H2(ITHAT2,M2,1)
+      END DO
+      DO M3=1,MM3
+        Z00=H3(ITHAT3,M3,1)
+        Z0(1,M3)=Z00*H3(ITHAT3,M3,1)
+        Z0(2,M3)=Z00*H3(ITHAT3,M3,2)
+        Z0(3,M3)=Z00*H3(ITHAT3,M3,3)
+        Z0(4,M3)=H3(ITHAT3,M3,1)*H3(ITHAT3,M3,1)
+      END DO
+C**FORM INDIVIDUAL INTEGRATION TERMS (END)
+      DO M4=1,MM4
+        W1=0
+        W2=0
+        W3=0
+        W21=0
+C**INTEGRATE OVER SINGLE STATES (START)
+        IF(JCOUPL.GT.0)THEN
+          DO M1=1,MM1
+            DO M2=1,MM2
+              DO M3=1,MM3
+                IF(J21.GT.1.AND.ICOUPL.EQ.4)
+     1          W21=W21+VR(K,M4,M3,M2,M1)*X0(4,M1)*Y0(4,M2)*Z0(4,M3)
+                W1=W1+VP(M4,M3,M2,M1)*X0(1,M1)*Y0(1,M2)*Z0(1,M3)
+                W1=W1-VC(M4,M3,M2,M1,1)*X0(2,M1)*Y0(1,M2)*Z0(1,M3)-
+     1          VC(M4,M3,M2,M1,2)*X0(1,M1)*Y0(2,M2)*Z0(1,M3)-
+     2          VC(M4,M3,M2,M1,3)*X0(1,M1)*Y0(1,M2)*Z0(2,M3)-
+     2          VC(M4,M3,M2,M1,5)*X0(3,M1)*Y0(1,M2)*Z0(1,M3)-
+     3          2*VC(M4,M3,M2,M1,6)*X0(2,M1)*Y0(2,M2)*Z0(1,M3)-
+     3          2*VC(M4,M3,M2,M1,7)*X0(2,M1)*Y0(1,M2)*Z0(2,M3)-
+     4          VC(M4,M3,M2,M1,9)*X0(1,M1)*Y0(3,M2)*Z0(1,M3)-
+     5          2*VC(M4,M3,M2,M1,10)*X0(1,M1)*Y0(2,M2)*Z0(2,M3)-
+     6          VC(M4,M3,M2,M1,12)*X0(1,M1)*Y0(1,M2)*Z0(3,M3)
+                W1=W1+
+     1          VC(M4,M3,M2,M1,15)*X0(4,M1)*Y0(1,M2)*Z0(1,M3)*FACT
+                W2=W2-VC(M4,M3,M2,M1,4)*X0(1,M1)*Y0(1,M2)*Z0(1,M3)
+     1          -2*VC(M4,M3,M2,M1,8)*X0(2,M1)*Y0(1,M2)*Z0(1,M3)
+     2          -2*VC(M4,M3,M2,M1,11)*X0(1,M1)*Y0(2,M2)*Z0(1,M3)-
+     3          2*VC(M4,M3,M2,M1,13)*X0(1,M1)*Y0(1,M2)*Z0(2,M3)
+                W3=W3-VC(M4,M3,M2,M1,14)*X0(1,M1)*Y0(1,M2)*Z0(1,M3)
+              END DO
+            END DO
+          END DO
+        ELSE
+          DO M1=1,MM1
+            DO M2=1,MM2
+              DO M3=1,MM3
+                IF(J21.GT.1.AND.ICOUPL.EQ.4)
+     1          W21=W21+VRR(K,M4,M3,M2,M1)*X0(4,M1)*Y0(4,M2)*Z0(4,M3)
+                W1=W1+VPR(M4,M3,M2,M1)*X0(1,M1)*Y0(1,M2)*Z0(1,M3)
+                W1=W1-VCR(M4,M3,M2,M1,1)*X0(2,M1)*Y0(1,M2)*Z0(1,M3)-
+     1          VCR(M4,M3,M2,M1,2)*X0(1,M1)*Y0(2,M2)*Z0(1,M3)-
+     2          VCR(M4,M3,M2,M1,3)*X0(1,M1)*Y0(1,M2)*Z0(2,M3)-
+     2          VCR(M4,M3,M2,M1,5)*X0(3,M1)*Y0(1,M2)*Z0(1,M3)-
+     3          2*VCR(M4,M3,M2,M1,6)*X0(2,M1)*Y0(2,M2)*Z0(1,M3)-
+     3          2*VCR(M4,M3,M2,M1,7)*X0(2,M1)*Y0(1,M2)*Z0(2,M3)-
+     4          VCR(M4,M3,M2,M1,9)*X0(1,M1)*Y0(3,M2)*Z0(1,M3)-
+     5          2*VCR(M4,M3,M2,M1,10)*X0(1,M1)*Y0(2,M2)*Z0(2,M3)-
+     6          VCR(M4,M3,M2,M1,12)*X0(1,M1)*Y0(1,M2)*Z0(3,M3)
+                W1=W1+
+     1          VCR(M4,M3,M2,M1,15)*X0(4,M1)*Y0(1,M2)*Z0(1,M3)*FACT
+                W2=W2-VCR(M4,M3,M2,M1,4)*X0(1,M1)*Y0(1,M2)*Z0(1,M3)
+     1          -2*VCR(M4,M3,M2,M1,8)*X0(2,M1)*Y0(1,M2)*Z0(1,M3)
+     2          -2*VCR(M4,M3,M2,M1,11)*X0(1,M1)*Y0(2,M2)*Z0(1,M3)-
+     3          2*VCR(M4,M3,M2,M1,13)*X0(1,M1)*Y0(1,M2)*Z0(2,M3)
+                W3=W3-VCR(M4,M3,M2,M1,14)*X0(1,M1)*Y0(1,M2)*Z0(1,M3)
+              END DO
+            END DO
+          END DO
+        END IF
+C**INTEGRATE OVER SINGLE STATES (END)
+        DO IRHS=1,NN4
+          X=W1*H4(IRHS,M4,1)+W2*H4(IRHS,M4,2)+W3*H4(IRHS,M4,3)
+          TERM=W21*H4(IRHS,M4,1)*FACTRC
+          DO ILHS=1,IRHS
+            Y=H4(ILHS,M4,1)
+            XK(ILHS,IRHS)=XK(ILHS,IRHS)+Y*(X+TERM)
+          END DO
+        END DO
+      END DO
+      IF(ITIM4A.EQ.0)THEN
+        IF(IPRINT.GT.1)CALL TIMIT(3)
+        ITIM4A=1
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE THAT4(ISTAT,NSTAT,NMODE,ISTATE,MODE1,MODE2,MODE3,
+     1MODE4,H1,XQ1,H2,XQ2,H3,XQ3,H4,XQ4,NN1,MM1,NN2,MM2,NN3,MM3,
+     2NN4,MM4,X0,Y0,Z0,W0,XK,KXK,NATOM,QQ,XZ,AB,B,AA,BB,RR,XX,XX0,XL,
+     3XM,NPOT,IPOT,JPOT,CPOT,VP,VPR,VC,VCR,VR,VRR,J21,K)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      REAL*8 VP(MM4,MM3,MM2,MM1),VC(MM4,MM3,MM2,MM1,15),
+     1VR(J21,MM4,MM3,MM2,MM1)
+      REAL*4 VPR(MM4,MM3,MM2,MM1),VCR(MM4,MM3,MM2,MM1,15),
+     1VRR(J21,MM4,MM3,MM2,MM1)
+      DIMENSION ISTAT(NSTAT,NMODE),XK(KXK,KXK)
+      DIMENSION H1(NN1,MM1,3),XQ1(MM1),H2(NN2,MM2,3),XQ2(MM2)
+      DIMENSION H3(NN3,MM3,3),XQ3(MM3),H4(NN4,MM4,3),XQ4(MM4)
+      DIMENSION QQ(NMODE),XZ(NMODE,NMODE,3),AB(NMODE,3),RR(NATOM,NATOM)
+      DIMENSION B(NMODE,NMODE),AA(NMODE,3,3),BB(NMODE)
+      DIMENSION XX(NATOM,3),XX0(NATOM,3),XL(NATOM,NMODE,3),XM(NATOM)
+      DIMENSION IPOT(NPOT,6),JPOT(NPOT,6),CPOT(NPOT)
+      DIMENSION X0(4,MM1),Y0(4,MM2),Z0(4,MM3),W0(4,MM4)
+      COMMON/COUPLE/ICOUPL,JCOUPL
+      COMMON/ROTS/JMAX
+      COMMON/WHICH/IWHICH
+      COMMON/FACTOR/FACTOR
+      COMMON/TIMER/ITIM1A,ITIM1B,ITIM2A,ITIM2B,ITIM3A,ITIM3B,
+     1ITIM4A,ITIM4B,ITIM
+      COMMON/PRINT/IPRINT,JPRINT
+      COMMON/FILASS/IOUT,INP
+      IF(ITIM4B.EQ.0)THEN
+        IF(IPRINT.GT.1)THEN
+          WRITE(IOUT,*)'Calculating THAT4'
+          CALL TIMIT(1)
+        END IF
+      END IF
+      FACT=0
+      IF(ICOUPL.EQ.4)FACT=1/FACTOR
+      IFACT=1
+      IF(IWHICH.NE.0)THEN
+        IF(ICOUPL.EQ.4)IFACT=1
+      END IF
+      ITHAT1=ISTAT(ISTATE,MODE1)
+      ITHAT2=ISTAT(ISTATE,MODE2)
+      ITHAT3=ISTAT(ISTATE,MODE3)
+      ITHAT4=ISTAT(ISTATE,MODE4)
+      FACTRC=FACT
+      IF(JCOUPL.GT.0)THEN
+        IF(J21.GT.1.AND.ICOUPL.EQ.4)READ(64)VR
+        READ(74)VP
+        READ(84)VC
+      ELSE
+        IF(J21.GT.1.AND.ICOUPL.EQ.4)READ(64)VRR
+        READ(74)VPR
+        READ(84)VCR
+      END IF
+C**FORM INDIVIDUAL INTEGRATION TERMS (START)
+      DO M1=1,MM1
+        X00=H1(ITHAT1,M1,1)*IFACT
+        X0(1,M1)=X00*H1(ITHAT1,M1,1)
+        X0(2,M1)=X00*H1(ITHAT1,M1,2)
+        X0(3,M1)=X00*H1(ITHAT1,M1,3)
+        X0(4,M1)=H1(ITHAT1,M1,1)*H1(ITHAT1,M1,1)
+      END DO
+      DO M2=1,MM2
+        Y00=H2(ITHAT2,M2,1)
+        Y0(1,M2)=Y00*H2(ITHAT2,M2,1)
+        Y0(2,M2)=Y00*H2(ITHAT2,M2,2)
+        Y0(3,M2)=Y00*H2(ITHAT2,M2,3)
+        Y0(4,M2)=H2(ITHAT2,M2,1)*H2(ITHAT2,M2,1)
+      END DO
+      DO M3=1,MM3
+        Z00=H3(ITHAT3,M3,1)
+        Z0(1,M3)=Z00*H3(ITHAT3,M3,1)
+        Z0(2,M3)=Z00*H3(ITHAT3,M3,2)
+        Z0(3,M3)=Z00*H3(ITHAT3,M3,3)
+        Z0(4,M3)=H3(ITHAT3,M3,1)*H3(ITHAT3,M3,1)
+      END DO
+      DO M4=1,MM4
+        W00=H4(ITHAT4,M4,1)
+        W0(1,M4)=W00*H4(ITHAT4,M4,1)
+        W0(2,M4)=W00*H4(ITHAT4,M4,2)
+        W0(3,M4)=W00*H4(ITHAT4,M4,3)
+        W0(4,M4)=H4(ITHAT4,M4,1)*H4(ITHAT4,M4,1)
+      END DO
+C**FORM INDIVIDUAL INTEGRATION TERMS (END)
+      TERM=0
+      IF(JCOUPL.GT.0)THEN
+      DO M1=1,MM1
+        DO M2=1,MM2
+          DO M3=1,MM3
+            DO M4=1,MM4
+              X=VP(M4,M3,M2,M1)*X0(1,M1)*Y0(1,M2)*Z0(1,M3)*W0(1,M4)
+              X=X-
+     1        VC(M4,M3,M2,M1,1)*X0(2,M1)*Y0(1,M2)*Z0(1,M3)*W0(1,M4)-
+     1        VC(M4,M3,M2,M1,2)*X0(1,M1)*Y0(2,M2)*Z0(1,M3)*W0(1,M4)-
+     2        VC(M4,M3,M2,M1,3)*X0(1,M1)*Y0(1,M2)*Z0(2,M3)*W0(1,M4)-
+     2        VC(M4,M3,M2,M1,4)*X0(1,M1)*Y0(1,M2)*Z0(1,M3)*W0(2,M4)-
+     3        VC(M4,M3,M2,M1,5)*X0(3,M1)*Y0(1,M2)*Z0(1,M3)*W0(1,M4)-
+     3        2*VC(M4,M3,M2,M1,6)*X0(2,M1)*Y0(2,M2)*Z0(1,M3)*W0(1,M4)-
+     4        2*VC(M4,M3,M2,M1,7)*X0(2,M1)*Y0(1,M2)*Z0(2,M3)*W0(1,M4)-
+     4        2*VC(M4,M3,M2,M1,8)*X0(2,M1)*Y0(1,M2)*Z0(1,M3)*W0(2,M4)-
+     5        VC(M4,M3,M2,M1,9)*X0(1,M1)*Y0(3,M2)*Z0(1,M3)*W0(1,M4)-
+     6        2*VC(M4,M3,M2,M1,10)*X0(1,M1)*Y0(2,M2)*Z0(2,M3)*W0(1,M4)-
+     6        2*VC(M4,M3,M2,M1,11)*X0(1,M1)*Y0(2,M2)*Z0(1,M3)*W0(2,M4)-
+     8        VC(M4,M3,M2,M1,12)*X0(1,M1)*Y0(1,M2)*Z0(3,M3)*W0(1,M4)-
+     8        2*VC(M4,M3,M2,M1,13)*X0(1,M1)*Y0(1,M2)*Z0(2,M3)*W0(2,M4)-
+     1        VC(M4,M3,M2,M1,14)*X0(1,M1)*Y0(1,M2)*Z0(1,M3)*W0(3,M4)
+              X=X+
+     1        VC(M4,M3,M2,M1,15)*X0(4,M1)*Y0(1,M2)*Z0(1,M3)*W0(1,M4)
+     2        *FACT
+              TERM=TERM+X
+            END DO
+          END DO
+        END DO
+      END DO
+      ELSE
+      DO M1=1,MM1
+        DO M2=1,MM2
+          DO M3=1,MM3
+            DO M4=1,MM4
+              X=VPR(M4,M3,M2,M1)*X0(1,M1)*Y0(1,M2)*Z0(1,M3)*W0(1,M4)
+              X=X-
+     1        VCR(M4,M3,M2,M1,1)*X0(2,M1)*Y0(1,M2)*Z0(1,M3)*W0(1,M4)-
+     1        VCR(M4,M3,M2,M1,2)*X0(1,M1)*Y0(2,M2)*Z0(1,M3)*W0(1,M4)-
+     2        VCR(M4,M3,M2,M1,3)*X0(1,M1)*Y0(1,M2)*Z0(2,M3)*W0(1,M4)-
+     2        VCR(M4,M3,M2,M1,4)*X0(1,M1)*Y0(1,M2)*Z0(1,M3)*W0(2,M4)-
+     3        VCR(M4,M3,M2,M1,5)*X0(3,M1)*Y0(1,M2)*Z0(1,M3)*W0(1,M4)-
+     3        2*VCR(M4,M3,M2,M1,6)*X0(2,M1)*Y0(2,M2)*Z0(1,M3)*W0(1,M4)-
+     4        2*VCR(M4,M3,M2,M1,7)*X0(2,M1)*Y0(1,M2)*Z0(2,M3)*W0(1,M4)-
+     4        2*VCR(M4,M3,M2,M1,8)*X0(2,M1)*Y0(1,M2)*Z0(1,M3)*W0(2,M4)-
+     5        VCR(M4,M3,M2,M1,9)*X0(1,M1)*Y0(3,M2)*Z0(1,M3)*W0(1,M4)-
+     6        2*VCR(M4,M3,M2,M1,10)*X0(1,M1)*Y0(2,M2)*Z0(2,M3)*W0(1,M4)
+     6       -2*VCR(M4,M3,M2,M1,11)*X0(1,M1)*Y0(2,M2)*Z0(1,M3)*W0(2,M4)
+     8       -VCR(M4,M3,M2,M1,12)*X0(1,M1)*Y0(1,M2)*Z0(3,M3)*W0(1,M4)-
+     8        2*VCR(M4,M3,M2,M1,13)*X0(1,M1)*Y0(1,M2)*Z0(2,M3)*W0(2,M4)
+     1       -VCR(M4,M3,M2,M1,14)*X0(1,M1)*Y0(1,M2)*Z0(1,M3)*W0(3,M4)
+              X=X+
+     1        VCR(M4,M3,M2,M1,15)*X0(4,M1)*Y0(1,M2)*Z0(1,M3)*W0(1,M4)
+     2        *FACT
+              TERM=TERM+X
+            END DO
+          END DO
+        END DO
+      END DO
+      END IF
+      DO IRLHS=1,KXK
+        XK(IRLHS,IRLHS)=XK(IRLHS,IRLHS)+TERM
+      END DO
+      IF(J21.GT.1.AND.ICOUPL.EQ.4)THEN
+        W21=0
+        IF(JCOUPL.GT.0)THEN
+          DO M1=1,MM1
+            DO M2=1,MM2
+              DO M3=1,MM3
+                DO M4=1,MM4
+                  W21=W21+VR(K,M4,M3,M2,M1)*X0(4,M1)*
+     1            Y0(4,M2)*Z0(4,M3)*W0(4,M4)
+                END DO
+              END DO
+            END DO
+          END DO
+        ELSE
+          DO M1=1,MM1
+            DO M2=1,MM2
+              DO M3=1,MM3
+                DO M4=1,MM4
+                  W21=W21+VRR(K,M4,M3,M2,M1)*X0(4,M1)*
+     1            Y0(4,M2)*Z0(4,M3)*W0(4,M4)
+                END DO
+              END DO
+            END DO
+          END DO
+        END IF
+        TERM=W21*FACTRC
+        DO IRLHS=1,KXK
+          XK(IRLHS,IRLHS)=XK(IRLHS,IRLHS)+TERM
+        END DO
+      END IF
+      IF(ITIM4B.EQ.0)THEN
+        IF(IPRINT.GT.1)CALL TIMIT(3)
+        ITIM4B=1
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE DUMPT1(XQ,MM,NMODE,NATOM,QQ,RR,XX,X0,XL,XM,NPOT,IPOT,
+     1JPOT,CPOT,MODE,V,VR,IND)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      REAL*8 V(MM)
+      REAL*4 VR(MM)
+      DIMENSION XQ(MM),RR(NATOM,NATOM),QQ(NMODE)
+      DIMENSION XX(NATOM,3),X0(NATOM,3),XL(NATOM,NMODE,3),XM(NATOM)
+      DIMENSION IPOT(NPOT,6),JPOT(NPOT,6),CPOT(NPOT)
+      COMMON/WHICH/IWHICH
+      COMMON/COUPLE/ICOUPL,JCOUPL
+      DO K=1,NMODE
+        QQ(K)=0
+      END DO
+      DO M=1,MM
+        QQ(MODE)=XQ(M)
+        IF(IWHICH.NE.0)THEN
+          DO I=1,NATOM
+            DO J=1,3
+              XX(I,J)=X0(I,J)+XL(I,MODE,J)*QQ(MODE)/
+     1        SQRT(XM(I))
+            END DO
+          END DO
+          CALL GETPOT(VDP,NATOM,XX,RR)
+        ELSE
+          CALL GETPT1(VDP,NPOT,IPOT,JPOT,CPOT,NMODE,QQ)
+        END IF
+        IF(IND.NE.0)THEN
+          IF(JCOUPL.GT.0)THEN
+            V(M)=VDP
+          ELSE
+            VR(M)=VDP
+          END IF
+        ELSE
+          V(M)=VDP
+        END IF
+      END DO
+      IF(IND.NE.0)THEN
+        IF(JCOUPL.GT.0)THEN
+          WRITE(71)V
+        ELSE
+          WRITE(71)VR
+        END IF
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE DUMCR1(XQ1,MM1,NMODE,NATOM,QQ,XZ,AB,B,AA,BB,
+     1XX,X0,XL,XM,MODE1,V,VR,VM,VMR,JMAX)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      REAL*8 V(MM1),VM(MM1,6)
+      REAL*4 VR(MM1),VMR(MM1,6)
+      DIMENSION XQ1(MM1),QQ(NMODE),XZ(NMODE,NMODE,3)
+      DIMENSION AB(NMODE,3),B(NMODE,NMODE),AA(NMODE,3,3),BB(NMODE)
+      DIMENSION XX(NATOM,3),X0(NATOM,3),XL(NATOM,NMODE,3),XM(NATOM)
+      COMMON/MOMI/XK(3,3),XMU(3,3)
+      COMMON/AXES/MXYZ(3)
+      COMMON/WHICH/IWHICH
+      COMMON/COUPLE/ICOUPL,JCOUPL
+      COMMON/FILASS/IOUT,INP
+C**TEMPORARY (DIMENSIONS)
+      COMMON/MULT/MULT(1000)
+      MX=MXYZ(1)
+      MY=MXYZ(2)
+      MZ=MXYZ(3)
+      DO K=1,NMODE
+        QQ(K)=0
+        MULT(K)=0
+      END DO
+      MULT(MODE1)=1
+      DO M1=1,MM1
+        QQ(MODE1)=XQ1(M1)
+        CALL CORIOL(NMODE,NATOM,QQ,XZ,AB,B,AA,BB,XX,X0,XL,XM,ZZ)
+        IF(JMAX.EQ.0)THEN
+          IF(JCOUPL.GT.0)THEN
+            V(M1)=ZZ
+          ELSE
+            VR(M1)=ZZ
+          END IF
+        ELSE
+          IF(JCOUPL.GT.0)THEN
+            VM(M1,1)=XMU(MX,MX)/2
+            VM(M1,2)=XMU(MY,MY)/2
+            VM(M1,3)=XMU(MZ,MZ)/2
+            VM(M1,4)=XMU(MX,MZ)/2
+            VM(M1,5)=XMU(MY,MZ)/2
+            VM(M1,6)=XMU(MX,MY)/2
+          ELSE
+            VMR(M1,1)=XMU(MX,MX)/2
+            VMR(M1,2)=XMU(MY,MY)/2
+            VMR(M1,3)=XMU(MZ,MZ)/2
+            VMR(M1,4)=XMU(MX,MZ)/2
+            VMR(M1,5)=XMU(MY,MZ)/2
+            VMR(M1,6)=XMU(MX,MY)/2
+          END IF
+        END IF
+      END DO
+      IF(JMAX.EQ.0)THEN
+        IF(JCOUPL.GT.0)THEN
+          WRITE(81)V
+        ELSE
+          WRITE(81)VR
+        END IF
+      ELSE
+        IF(JCOUPL.GT.0)THEN
+          WRITE(91)VM
+        ELSE
+          WRITE(91)VMR
+        END IF
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE DUMPT2(XQ1,XQ2,MM1,MM2,NMODE,NATOM,QQ,RR,XX,X0,XL,XM,
+     1NPOT,IPOT,JPOT,CPOT,MODE1,MODE2,V,VR)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      REAL*8 V(MM2,MM1)
+      REAL*4 VR(MM2,MM1)
+      DIMENSION XQ1(MM1),XQ2(MM2),RR(NATOM,NATOM),QQ(NMODE)
+      DIMENSION XX(NATOM,3),X0(NATOM,3),XL(NATOM,NMODE,3),XM(NATOM)
+      DIMENSION IPOT(NPOT,6),JPOT(NPOT,6),CPOT(NPOT)
+      COMMON/WHICH/IWHICH
+      COMMON/COUPLE/ICOUPL,JCOUPL
+      DO K=1,NMODE
+        QQ(K)=0
+      END DO
+      DO M1=1,MM1
+        QQ(MODE1)=XQ1(M1)
+        DO M2=1,MM2
+          QQ(MODE2)=XQ2(M2)
+          IF(IWHICH.NE.0)THEN
+            DO I=1,NATOM
+              DO J=1,3
+                XX(I,J)=X0(I,J)+XL(I,MODE1,J)*QQ(MODE1)/
+     1          SQRT(XM(I))
+                XX(I,J)=XX(I,J)+XL(I,MODE2,J)*QQ(MODE2)/
+     1          SQRT(XM(I))
+              END DO
+            END DO
+            CALL GETPOT(VDP,NATOM,XX,RR)
+          ELSE
+            CALL GETPT2(VDP,NPOT,IPOT,JPOT,CPOT,NMODE,QQ)
+          END IF
+          IF(JCOUPL.GT.0)THEN
+            V(M2,M1)=VDP
+          ELSE
+            VR(M2,M1)=VDP
+          END IF
+        END DO
+      END DO
+      IF(JCOUPL.GT.0)THEN
+        WRITE(72)V
+      ELSE
+        WRITE(72)VR
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE DUMCR2(XQ1,XQ2,MM1,MM2,NMODE,NATOM,QQ,XZ,AB,B,AA,BB,
+     1XX,X0,XL,XM,MODE1,MODE2,V,VR,VM,VMR,JMAX)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      REAL*8 V(MM2,MM1,6),VM(MM2,MM1,12)
+      REAL*4 VR(MM2,MM1,6),VMR(MM2,MM1,12)
+      DIMENSION XQ1(MM1),XQ2(MM2),QQ(NMODE),XZ(NMODE,NMODE,3)
+      DIMENSION AB(NMODE,3),B(NMODE,NMODE),AA(NMODE,3,3),BB(NMODE)
+      DIMENSION XX(NATOM,3),X0(NATOM,3),XL(NATOM,NMODE,3),XM(NATOM)
+      COMMON/MOMI/XK(3,3),XMU(3,3)
+      COMMON/AXES/MXYZ(3)
+      COMMON/WHICH/IWHICH
+      COMMON/COUPLE/ICOUPL,JCOUPL
+      COMMON/FILASS/IOUT,INP
+C**TEMPORARY (DIMENSIONS)
+      COMMON/MULT/MULT(1000)
+      MX=MXYZ(1)
+      MY=MXYZ(2)
+      MZ=MXYZ(3)
+      DO K=1,NMODE
+        QQ(K)=0
+        MULT(K)=0
+      END DO
+      MULT(MODE1)=1
+      MULT(MODE2)=1
+      DO M1=1,MM1
+        QQ(MODE1)=XQ1(M1)
+        DO M2=1,MM2
+          QQ(MODE2)=XQ2(M2)
+          CALL CORIOL(NMODE,NATOM,QQ,XZ,AB,B,AA,BB,XX,X0,XL,XM,ZZ)
+          IF(JMAX.EQ.0)THEN
+            IF(JCOUPL.GT.0)THEN
+              V(M2,M1,1)=BB(MODE1)
+              V(M2,M1,2)=BB(MODE2)
+              V(M2,M1,3)=B(MODE1,MODE1)
+              V(M2,M1,4)=B(MODE1,MODE2)
+              V(M2,M1,5)=B(MODE2,MODE2)
+              V(M2,M1,6)=ZZ
+            ELSE
+              VR(M2,M1,1)=BB(MODE1)
+              VR(M2,M1,2)=BB(MODE2)
+              VR(M2,M1,3)=B(MODE1,MODE1)
+              VR(M2,M1,4)=B(MODE1,MODE2)
+              VR(M2,M1,5)=B(MODE2,MODE2)
+              VR(M2,M1,6)=ZZ
+            END IF
+          ELSE
+            IF(JCOUPL.GT.0)THEN
+              VM(M2,M1,1)=XMU(MX,MX)/2
+              VM(M2,M1,2)=XMU(MY,MY)/2
+              VM(M2,M1,3)=XMU(MZ,MZ)/2
+              VM(M2,M1,4)=XMU(MX,MZ)/2
+              VM(M2,M1,5)=XMU(MY,MZ)/2
+              VM(M2,M1,6)=XMU(MX,MY)/2
+              VM(M2,M1,7)=XMU(MX,MX)*AB(MODE1,MX)+
+     1        XMU(MY,MX)*AB(MODE1,MY)+XMU(MZ,MX)*AB(MODE1,MZ)
+              VM(M2,M1,8)=XMU(MX,MX)*AB(MODE2,MX)+
+     1        XMU(MY,MX)*AB(MODE2,MY)+XMU(MZ,MX)*AB(MODE2,MZ)
+              VM(M2,M1,9)=XMU(MX,MY)*AB(MODE1,MX)+
+     1        XMU(MY,MY)*AB(MODE1,MY)+XMU(MZ,MY)*AB(MODE1,MZ)
+              VM(M2,M1,10)=XMU(MX,MY)*AB(MODE2,MX)+
+     1        XMU(MY,MY)*AB(MODE2,MY)+XMU(MZ,MY)*AB(MODE2,MZ)
+              VM(M2,M1,11)=XMU(MX,MZ)*AB(MODE1,MX)+
+     1        XMU(MY,MZ)*AB(MODE1,MY)+XMU(MZ,MZ)*AB(MODE1,MZ)
+              VM(M2,M1,12)=XMU(MX,MZ)*AB(MODE2,MX)+
+     1        XMU(MY,MZ)*AB(MODE2,MY)+XMU(MZ,MZ)*AB(MODE2,MZ)
+            ELSE
+              VMR(M2,M1,1)=XMU(MX,MX)/2
+              VMR(M2,M1,2)=XMU(MY,MY)/2
+              VMR(M2,M1,3)=XMU(MZ,MZ)/2
+              VMR(M2,M1,4)=XMU(MX,MZ)/2
+              VMR(M2,M1,5)=XMU(MY,MZ)/2
+              VMR(M2,M1,6)=XMU(MX,MY)/2
+              VMR(M2,M1,7)=XMU(MX,MX)*AB(MODE1,MX)+
+     1        XMU(MY,MX)*AB(MODE1,MY)+XMU(MZ,MX)*AB(MODE1,MZ)
+              VMR(M2,M1,8)=XMU(MX,MX)*AB(MODE2,MX)+
+     1        XMU(MY,MX)*AB(MODE2,MY)+XMU(MZ,MX)*AB(MODE2,MZ)
+              VMR(M2,M1,9)=XMU(MX,MY)*AB(MODE1,MX)+
+     1        XMU(MY,MY)*AB(MODE1,MY)+XMU(MZ,MY)*AB(MODE1,MZ)
+              VMR(M2,M1,10)=XMU(MX,MY)*AB(MODE2,MX)+
+     1        XMU(MY,MY)*AB(MODE2,MY)+XMU(MZ,MY)*AB(MODE2,MZ)
+              VMR(M2,M1,11)=XMU(MX,MZ)*AB(MODE1,MX)+
+     1        XMU(MY,MZ)*AB(MODE1,MY)+XMU(MZ,MZ)*AB(MODE1,MZ)
+              VMR(M2,M1,12)=XMU(MX,MZ)*AB(MODE2,MX)+
+     1        XMU(MY,MZ)*AB(MODE2,MY)+XMU(MZ,MZ)*AB(MODE2,MZ)
+            END IF
+          END IF
+        END DO
+      END DO
+      IF(JMAX.EQ.0)THEN
+        IF(JCOUPL.GT.0)THEN
+          WRITE(82)V
+        ELSE
+          WRITE(82)VR
+        END IF
+      ELSE
+        IF(JCOUPL.GT.0)THEN
+          WRITE(92)VM
+        ELSE
+          WRITE(92)VMR
+        END IF
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE DUMPT3(XQ1,XQ2,XQ3,MM1,MM2,MM3,NMODE,NATOM,QQ,RR,XX,
+     1X0,XL,XM,NPOT,IPOT,JPOT,CPOT,MODE1,MODE2,MODE3,V,VR)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      REAL*8 V(MM3,MM2,MM1)
+      REAL*4 VR(MM3,MM2,MM1)
+      DIMENSION XQ1(MM1),XQ2(MM2),XQ3(MM3),RR(NATOM,NATOM),QQ(NMODE)
+      DIMENSION XX(NATOM,3),X0(NATOM,3),XL(NATOM,NMODE,3),XM(NATOM)
+      DIMENSION IPOT(NPOT,6),JPOT(NPOT,6),CPOT(NPOT)
+      COMMON/WHICH/IWHICH
+      COMMON/COUPLE/ICOUPL,JCOUPL
+      DO K=1,NMODE
+        QQ(K)=0
+      END DO
+      DO M1=1,MM1
+        QQ(MODE1)=XQ1(M1)
+        DO M2=1,MM2
+          QQ(MODE2)=XQ2(M2)
+          DO M3=1,MM3
+            QQ(MODE3)=XQ3(M3)
+            IF(IWHICH.NE.0)THEN
+              DO I=1,NATOM
+                DO J=1,3
+                  XX(I,J)=X0(I,J)+XL(I,MODE1,J)*QQ(MODE1)/
+     1            SQRT(XM(I))
+                  XX(I,J)=XX(I,J)+XL(I,MODE2,J)*QQ(MODE2)/
+     1            SQRT(XM(I))
+                  XX(I,J)=XX(I,J)+XL(I,MODE3,J)*QQ(MODE3)/
+     1            SQRT(XM(I))
+                END DO
+              END DO
+              CALL GETPOT(VDP,NATOM,XX,RR)
+            ELSE
+              CALL GETPT3(VDP,NPOT,IPOT,JPOT,CPOT,NMODE,QQ)
+            END IF
+            IF(JCOUPL.GT.0)THEN
+              V(M3,M2,M1)=VDP
+            ELSE
+              VR(M3,M2,M1)=VDP
+            END IF
+          END DO
+        END DO
+      END DO
+      IF(JCOUPL.GT.0)THEN
+        WRITE(73)V
+      ELSE
+        WRITE(73)VR
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE DUMCR3(XQ1,XQ2,XQ3,MM1,MM2,MM3,NMODE,NATOM,QQ,XZ,AB,B,
+     1AA,BB,XX,X0,XL,XM,MODE1,MODE2,MODE3,V,VR,VM,VMR,JMAX)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      REAL*8 V(MM3,MM2,MM1,10),VM(MM3,MM2,MM1,15)
+      REAL*4 VR(MM3,MM2,MM1,10),VMR(MM3,MM2,MM1,15)
+      DIMENSION XQ1(MM1),XQ2(MM2),XQ3(MM3),QQ(NMODE),XZ(NMODE,NMODE,3)
+      DIMENSION AB(NMODE,3),B(NMODE,NMODE),AA(NMODE,3,3),BB(NMODE)
+      DIMENSION XX(NATOM,3),X0(NATOM,3),XL(NATOM,NMODE,3),XM(NATOM)
+      COMMON/MOMI/XK(3,3),XMU(3,3)
+      COMMON/AXES/MXYZ(3)
+      COMMON/WHICH/IWHICH
+      COMMON/COUPLE/ICOUPL,JCOUPL
+      COMMON/FILASS/IOUT,INP
+C**TEMPORARY (DIMENSIONS)
+      COMMON/MULT/MULT(1000)
+      MX=MXYZ(1)
+      MY=MXYZ(2)
+      MZ=MXYZ(3)
+      DO K=1,NMODE
+        QQ(K)=0
+        MULT(K)=0
+      END DO
+      MULT(MODE1)=1
+      MULT(MODE2)=1
+      MULT(MODE3)=1
+      DO M1=1,MM1
+        QQ(MODE1)=XQ1(M1)
+        DO M2=1,MM2
+          QQ(MODE2)=XQ2(M2)
+          DO M3=1,MM3
+            QQ(MODE3)=XQ3(M3)
+            CALL CORIOL(NMODE,NATOM,QQ,XZ,AB,B,AA,BB,XX,X0,XL,XM,ZZ)
+            IF(JMAX.EQ.0)THEN
+              IF(JCOUPL.GT.0)THEN
+                V(M3,M2,M1,1)=BB(MODE1)
+                V(M3,M2,M1,2)=BB(MODE2)
+                V(M3,M2,M1,3)=BB(MODE3)
+                V(M3,M2,M1,4)=B(MODE1,MODE1)
+                V(M3,M2,M1,5)=B(MODE1,MODE2)
+                V(M3,M2,M1,6)=B(MODE1,MODE3)
+                V(M3,M2,M1,7)=B(MODE2,MODE2)
+                V(M3,M2,M1,8)=B(MODE2,MODE3)
+                V(M3,M2,M1,9)=B(MODE3,MODE3)
+                V(M3,M2,M1,10)=ZZ
+              ELSE
+                VR(M3,M2,M1,1)=BB(MODE1)
+                VR(M3,M2,M1,2)=BB(MODE2)
+                VR(M3,M2,M1,3)=BB(MODE3)
+                VR(M3,M2,M1,4)=B(MODE1,MODE1)
+                VR(M3,M2,M1,5)=B(MODE1,MODE2)
+                VR(M3,M2,M1,6)=B(MODE1,MODE3)
+                VR(M3,M2,M1,7)=B(MODE2,MODE2)
+                VR(M3,M2,M1,8)=B(MODE2,MODE3)
+                VR(M3,M2,M1,9)=B(MODE3,MODE3)
+                VR(M3,M2,M1,10)=ZZ
+              END IF
+            ELSE
+              IF(JCOUPL.GT.0)THEN
+                VM(M3,M2,M1,1)=XMU(MX,MX)/2
+                VM(M3,M2,M1,2)=XMU(MY,MY)/2
+                VM(M3,M2,M1,3)=XMU(MZ,MZ)/2
+                VM(M3,M2,M1,4)=XMU(MX,MZ)/2
+                VM(M3,M2,M1,5)=XMU(MY,MZ)/2
+                VM(M3,M2,M1,6)=XMU(MX,MY)/2
+                VM(M3,M2,M1,7)=XMU(MX,MX)*AB(MODE1,MX)+
+     1          XMU(MY,MX)*AB(MODE1,MY)+XMU(MZ,MX)*AB(MODE1,MZ)
+                VM(M3,M2,M1,8)=XMU(MX,MX)*AB(MODE2,MX)+
+     1          XMU(MY,MX)*AB(MODE2,MY)+XMU(MZ,MX)*AB(MODE2,MZ)
+                VM(M3,M2,M1,9)=XMU(MX,MX)*AB(MODE3,MX)+
+     1          XMU(MY,MX)*AB(MODE3,MY)+XMU(MZ,MX)*AB(MODE3,MZ)
+                VM(M3,M2,M1,10)=XMU(MX,MY)*AB(MODE1,MX)+
+     1          XMU(MY,MY)*AB(MODE1,MY)+XMU(MZ,MY)*AB(MODE1,MZ)
+                VM(M3,M2,M1,11)=XMU(MX,MY)*AB(MODE2,MX)+
+     1          XMU(MY,MY)*AB(MODE2,MY)+XMU(MZ,MY)*AB(MODE2,MZ)
+                VM(M3,M2,M1,12)=XMU(MX,MY)*AB(MODE3,MX)+
+     1          XMU(MY,MY)*AB(MODE3,MY)+XMU(MZ,MY)*AB(MODE3,MZ)
+                VM(M3,M2,M1,13)=XMU(MX,MZ)*AB(MODE1,MX)+
+     1          XMU(MY,MZ)*AB(MODE1,MY)+XMU(MZ,MZ)*AB(MODE1,MZ)
+                VM(M3,M2,M1,14)=XMU(MX,MZ)*AB(MODE2,MX)+
+     1          XMU(MY,MZ)*AB(MODE2,MY)+XMU(MZ,MZ)*AB(MODE2,MZ)
+                VM(M3,M2,M1,15)=XMU(MX,MZ)*AB(MODE3,MX)+
+     1          XMU(MY,MZ)*AB(MODE3,MY)+XMU(MZ,MZ)*AB(MODE3,MZ)
+              ELSE
+                VMR(M3,M2,M1,1)=XMU(MX,MX)/2
+                VMR(M3,M2,M1,2)=XMU(MY,MY)/2
+                VMR(M3,M2,M1,3)=XMU(MZ,MZ)/2
+                VMR(M3,M2,M1,4)=XMU(MX,MZ)/2
+                VMR(M3,M2,M1,5)=XMU(MY,MZ)/2
+                VMR(M3,M2,M1,6)=XMU(MX,MY)/2
+                VMR(M3,M2,M1,7)=XMU(MX,MX)*AB(MODE1,MX)+
+     1          XMU(MY,MX)*AB(MODE1,MY)+XMU(MZ,MX)*AB(MODE1,MZ)
+                VMR(M3,M2,M1,8)=XMU(MX,MX)*AB(MODE2,MX)+
+     1          XMU(MY,MX)*AB(MODE2,MY)+XMU(MZ,MX)*AB(MODE2,MZ)
+                VMR(M3,M2,M1,9)=XMU(MX,MX)*AB(MODE3,MX)+
+     1          XMU(MY,MX)*AB(MODE3,MY)+XMU(MZ,MX)*AB(MODE3,MZ)
+                VMR(M3,M2,M1,10)=XMU(MX,MY)*AB(MODE1,MX)+
+     1          XMU(MY,MY)*AB(MODE1,MY)+XMU(MZ,MY)*AB(MODE1,MZ)
+                VMR(M3,M2,M1,11)=XMU(MX,MY)*AB(MODE2,MX)+
+     1          XMU(MY,MY)*AB(MODE2,MY)+XMU(MZ,MY)*AB(MODE2,MZ)
+                VMR(M3,M2,M1,12)=XMU(MX,MY)*AB(MODE3,MX)+
+     1          XMU(MY,MY)*AB(MODE3,MY)+XMU(MZ,MY)*AB(MODE3,MZ)
+                VMR(M3,M2,M1,13)=XMU(MX,MZ)*AB(MODE1,MX)+
+     1          XMU(MY,MZ)*AB(MODE1,MY)+XMU(MZ,MZ)*AB(MODE1,MZ)
+                VMR(M3,M2,M1,14)=XMU(MX,MZ)*AB(MODE2,MX)+
+     1          XMU(MY,MZ)*AB(MODE2,MY)+XMU(MZ,MZ)*AB(MODE2,MZ)
+                VMR(M3,M2,M1,15)=XMU(MX,MZ)*AB(MODE3,MX)+
+     1          XMU(MY,MZ)*AB(MODE3,MY)+XMU(MZ,MZ)*AB(MODE3,MZ)
+              END IF
+            END IF
+          END DO
+        END DO
+      END DO
+      IF(JMAX.EQ.0)THEN
+        IF(JCOUPL.GT.0)THEN
+          WRITE(83)V
+        ELSE
+          WRITE(83)VR
+        END IF
+      ELSE
+        IF(JCOUPL.GT.0)THEN
+          WRITE(93)VM
+        ELSE
+          WRITE(93)VMR
+        END IF
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE DUMPT4(XQ1,XQ2,XQ3,XQ4,MM1,MM2,MM3,MM4,NMODE,NATOM,QQ,
+     1RR,XX,X0,XL,XM,NPOT,IPOT,JPOT,CPOT,MODE1,MODE2,MODE3,MODE4,V,VR)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      REAL*8 V(MM4,MM3,MM2,MM1)
+      REAL*4 VR(MM4,MM3,MM2,MM1)
+      DIMENSION XQ1(MM1),XQ2(MM2),XQ3(MM3),XQ4(MM4)
+      DIMENSION RR(NATOM,NATOM),QQ(NMODE)
+      DIMENSION XX(NATOM,3),X0(NATOM,3),XL(NATOM,NMODE,3),XM(NATOM)
+      DIMENSION IPOT(NPOT,6),JPOT(NPOT,6),CPOT(NPOT)
+      COMMON/WHICH/IWHICH
+      COMMON/COUPLE/ICOUPL,JCOUPL
+      DO K=1,NMODE
+        QQ(K)=0
+      END DO
+      DO M1=1,MM1
+        QQ(MODE1)=XQ1(M1)
+        DO M2=1,MM2
+          QQ(MODE2)=XQ2(M2)
+          DO M3=1,MM3
+            QQ(MODE3)=XQ3(M3)
+            DO M4=1,MM4
+              QQ(MODE4)=XQ4(M4)
+              IF(IWHICH.NE.0)THEN
+                DO I=1,NATOM
+                  DO J=1,3
+                    XX(I,J)=X0(I,J)+XL(I,MODE1,J)*
+     1              QQ(MODE1)/SQRT(XM(I))
+                    XX(I,J)=XX(I,J)+XL(I,MODE2,J)*QQ(MODE2)/
+     1              SQRT(XM(I))
+                    XX(I,J)=XX(I,J)+XL(I,MODE3,J)*QQ(MODE3)/
+     1              SQRT(XM(I))
+                    XX(I,J)=XX(I,J)+XL(I,MODE4,J)*QQ(MODE4)/
+     1              SQRT(XM(I))
+                  END DO
+                END DO
+                CALL GETPOT(VDP,NATOM,XX,RR)
+              ELSE
+                CALL GETPT4(VDP,NPOT,IPOT,JPOT,CPOT,NMODE,
+     1          QQ)
+              END IF
+              IF(JCOUPL.GT.0)THEN
+                V(M4,M3,M2,M1)=VDP
+              ELSE
+                VR(M4,M3,M2,M1)=VDP
+              END IF
+            END DO
+          END DO
+        END DO
+      END DO
+      IF(JCOUPL.GT.0)THEN
+        WRITE(74)V
+      ELSE
+        WRITE(74)VR
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE DUMCR4(XQ1,XQ2,XQ3,XQ4,MM1,MM2,MM3,MM4,NMODE,NATOM,QQ,
+     1XZ,AB,B,AA,BB,XX,X0,XL,XM,MODE1,MODE2,MODE3,MODE4,V,VR,VM,VMR,
+     2JMAX)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      REAL*8 V(MM4,MM3,MM2,MM1,15),VM(MM4,MM3,MM2,MM1,18)
+      REAL*4 VR(MM4,MM3,MM2,MM1,15),VMR(MM4,MM3,MM2,MM1,18)
+      DIMENSION XQ1(MM1),XQ2(MM2),XQ3(MM3),XQ4(MM4)
+      DIMENSION QQ(NMODE),XZ(NMODE,NMODE,3)
+      DIMENSION AB(NMODE,3),B(NMODE,NMODE),AA(NMODE,3,3),BB(NMODE)
+      DIMENSION XX(NATOM,3),X0(NATOM,3),XL(NATOM,NMODE,3),XM(NATOM)
+      COMMON/MOMI/XK(3,3),XMU(3,3)
+      COMMON/AXES/MXYZ(3)
+      COMMON/WHICH/IWHICH
+      COMMON/COUPLE/ICOUPL,JCOUPL
+      COMMON/FILASS/IOUT,INP
+C**TEMPORARY (DIMENSIONS)
+      COMMON/MULT/MULT(1000)
+      MX=MXYZ(1)
+      MY=MXYZ(2)
+      MZ=MXYZ(3)
+      DO K=1,NMODE
+        QQ(K)=0
+        MULT(K)=0
+      END DO
+      MULT(MODE1)=1
+      MULT(MODE2)=1
+      MULT(MODE3)=1
+      MULT(MODE4)=1
+      DO M1=1,MM1
+        QQ(MODE1)=XQ1(M1)
+        DO M2=1,MM2
+          QQ(MODE2)=XQ2(M2)
+          DO M3=1,MM3
+            QQ(MODE3)=XQ3(M3)
+            DO M4=1,MM4
+              QQ(MODE4)=XQ4(M4)
+              CALL CORIOL(NMODE,NATOM,QQ,XZ,AB,B,AA,BB,XX,X0,XL,XM,ZZ)
+              IF(JMAX.EQ.0)THEN
+                IF(JCOUPL.GT.0)THEN
+                  V(M4,M3,M2,M1,1)=BB(MODE1)
+                  V(M4,M3,M2,M1,2)=BB(MODE2)
+                  V(M4,M3,M2,M1,3)=BB(MODE3)
+                  V(M4,M3,M2,M1,4)=BB(MODE4)
+                  V(M4,M3,M2,M1,5)=B(MODE1,MODE1)
+                  V(M4,M3,M2,M1,6)=B(MODE1,MODE2)
+                  V(M4,M3,M2,M1,7)=B(MODE1,MODE3)
+                  V(M4,M3,M2,M1,8)=B(MODE1,MODE4)
+                  V(M4,M3,M2,M1,9)=B(MODE2,MODE2)
+                  V(M4,M3,M2,M1,10)=B(MODE2,MODE3)
+                  V(M4,M3,M2,M1,11)=B(MODE2,MODE4)
+                  V(M4,M3,M2,M1,12)=B(MODE3,MODE3)
+                  V(M4,M3,M2,M1,13)=B(MODE3,MODE4)
+                  V(M4,M3,M2,M1,14)=B(MODE4,MODE4)
+                  V(M4,M3,M2,M1,15)=ZZ
+                ELSE
+                  VR(M4,M3,M2,M1,1)=BB(MODE1)
+                  VR(M4,M3,M2,M1,2)=BB(MODE2)
+                  VR(M4,M3,M2,M1,3)=BB(MODE3)
+                  VR(M4,M3,M2,M1,4)=BB(MODE4)
+                  VR(M4,M3,M2,M1,5)=B(MODE1,MODE1)
+                  VR(M4,M3,M2,M1,6)=B(MODE1,MODE2)
+                  VR(M4,M3,M2,M1,7)=B(MODE1,MODE3)
+                  VR(M4,M3,M2,M1,8)=B(MODE1,MODE4)
+                  VR(M4,M3,M2,M1,9)=B(MODE2,MODE2)
+                  VR(M4,M3,M2,M1,10)=B(MODE2,MODE3)
+                  VR(M4,M3,M2,M1,11)=B(MODE2,MODE4)
+                  VR(M4,M3,M2,M1,12)=B(MODE3,MODE3)
+                  VR(M4,M3,M2,M1,13)=B(MODE3,MODE4)
+                  VR(M4,M3,M2,M1,14)=B(MODE4,MODE4)
+                  VR(M4,M3,M2,M1,15)=ZZ
+                END IF
+              ELSE
+                IF(JCOUPL.GT.0)THEN
+                  VM(M4,M3,M2,M1,1)=XMU(MX,MX)/2
+                  VM(M4,M3,M2,M1,2)=XMU(MY,MY)/2
+                  VM(M4,M3,M2,M1,3)=XMU(MZ,MZ)/2
+                  VM(M4,M3,M2,M1,4)=XMU(MX,MZ)/2
+                  VM(M4,M3,M2,M1,5)=XMU(MY,MZ)/2
+                  VM(M4,M3,M2,M1,6)=XMU(MX,MY)/2
+                  VM(M4,M3,M2,M1,7)=XMU(MX,MX)*AB(MODE1,MX)+XMU(MY,MX)*
+     1            AB(MODE1,MY)+XMU(MZ,MX)*AB(MODE1,MZ)
+                  VM(M4,M3,M2,M1,8)=XMU(MX,MX)*AB(MODE2,MX)+XMU(MY,MX)*
+     1            AB(MODE2,MY)+XMU(MZ,MX)*AB(MODE2,MZ)
+                  VM(M4,M3,M2,M1,9)=XMU(MX,MX)*AB(MODE3,MX)+XMU(MY,MX)*
+     1            AB(MODE3,MY)+XMU(MZ,MX)*AB(MODE3,MZ)
+                  VM(M4,M3,M2,M1,10)=XMU(MX,MX)*AB(MODE4,MX)+XMU(MY,MX)
+     1            *AB(MODE4,MY)+XMU(MZ,MX)*AB(MODE4,MZ)
+                  VM(M4,M3,M2,M1,11)=XMU(MX,MY)*AB(MODE1,MX)+XMU(MY,MY)
+     1            *AB(MODE1,MY)+XMU(MZ,MY)*AB(MODE1,MZ)
+                  VM(M4,M3,M2,M1,12)=XMU(MX,MY)*AB(MODE2,MX)+XMU(MY,MY)
+     1            *AB(MODE2,MY)+XMU(MZ,MY)*AB(MODE2,MZ)
+                  VM(M4,M3,M2,M1,13)=XMU(MX,MY)*AB(MODE3,MX)+XMU(MY,MY)
+     1            *AB(MODE3,MY)+XMU(MZ,MY)*AB(MODE3,MZ)
+                  VM(M4,M3,M2,M1,14)=XMU(MX,MY)*AB(MODE4,MX)+XMU(MY,MY)
+     1            *AB(MODE4,MY)+XMU(MZ,MY)*AB(MODE4,MZ)
+                  VM(M4,M3,M2,M1,15)=XMU(MX,MZ)*AB(MODE1,MX)+XMU(MY,MZ)
+     1            *AB(MODE1,MY)+XMU(MZ,MZ)*AB(MODE1,MZ)
+                  VM(M4,M3,M2,M1,16)=XMU(MX,MZ)*AB(MODE2,MX)+XMU(MY,MZ)
+     1            *AB(MODE2,MY)+XMU(MZ,MZ)*AB(MODE2,MZ)
+                  VM(M4,M3,M2,M1,17)=XMU(MX,MZ)*AB(MODE3,MX)+XMU(MY,MZ)
+     1            *AB(MODE3,MY)+XMU(MZ,MZ)*AB(MODE3,MZ)
+                  VM(M4,M3,M2,M1,18)=XMU(MX,MZ)*AB(MODE4,MX)+XMU(MY,MZ)
+     1            *AB(MODE4,MY)+XMU(MZ,MZ)*AB(MODE4,MZ)
+                ELSE
+                  VMR(M4,M3,M2,M1,1)=XMU(MX,MX)/2
+                  VMR(M4,M3,M2,M1,2)=XMU(MY,MY)/2
+                  VMR(M4,M3,M2,M1,3)=XMU(MZ,MZ)/2
+                  VMR(M4,M3,M2,M1,4)=XMU(MX,MZ)/2
+                  VMR(M4,M3,M2,M1,5)=XMU(MY,MZ)/2
+                  VMR(M4,M3,M2,M1,6)=XMU(MX,MY)/2
+                  VMR(M4,M3,M2,M1,7)=XMU(MX,MX)*AB(MODE1,MX)+XMU(MY,MX)
+     1            *AB(MODE1,MY)+XMU(MZ,MX)*AB(MODE1,MZ)
+                  VMR(M4,M3,M2,M1,8)=XMU(MX,MX)*AB(MODE2,MX)+XMU(MY,MX)
+     1            *AB(MODE2,MY)+XMU(MZ,MX)*AB(MODE2,MZ)
+                  VMR(M4,M3,M2,M1,9)=XMU(MX,MX)*AB(MODE3,MX)+XMU(MY,MX)
+     1            *AB(MODE3,MY)+XMU(MZ,MX)*AB(MODE3,MZ)
+                  VMR(M4,M3,M2,M1,10)=XMU(MX,MX)*AB(MODE4,MX)+
+     1            XMU(MY,MX)*AB(MODE4,MY)+XMU(MZ,MX)*AB(MODE4,MZ)
+                  VMR(M4,M3,M2,M1,11)=XMU(MX,MY)*AB(MODE1,MX)+
+     1            XMU(MY,MY)*AB(MODE1,MY)+XMU(MZ,MY)*AB(MODE1,MZ)
+                  VMR(M4,M3,M2,M1,12)=XMU(MX,MY)*AB(MODE2,MX)+
+     1            XMU(MY,MY)*AB(MODE2,MY)+XMU(MZ,MY)*AB(MODE2,MZ)
+                  VMR(M4,M3,M2,M1,13)=XMU(MX,MY)*AB(MODE3,MX)+
+     1            XMU(MY,MY)*AB(MODE3,MY)+XMU(MZ,MY)*AB(MODE3,MZ)
+                  VMR(M4,M3,M2,M1,14)=XMU(MX,MY)*AB(MODE4,MX)+
+     1            XMU(MY,MY)*AB(MODE4,MY)+XMU(MZ,MY)*AB(MODE4,MZ)
+                  VMR(M4,M3,M2,M1,15)=XMU(MX,MZ)*AB(MODE1,MX)+
+     1            XMU(MY,MZ)*AB(MODE1,MY)+XMU(MZ,MZ)*AB(MODE1,MZ)
+                  VMR(M4,M3,M2,M1,16)=XMU(MX,MZ)*AB(MODE2,MX)+
+     1            XMU(MY,MZ)*AB(MODE2,MY)+XMU(MZ,MZ)*AB(MODE2,MZ)
+                  VMR(M4,M3,M2,M1,17)=XMU(MX,MZ)*AB(MODE3,MX)+
+     1            XMU(MY,MZ)*AB(MODE3,MY)+XMU(MZ,MZ)*AB(MODE3,MZ)
+                  VMR(M4,M3,M2,M1,18)=XMU(MX,MZ)*AB(MODE4,MX)+
+     1            XMU(MY,MZ)*AB(MODE4,MY)+XMU(MZ,MZ)*AB(MODE4,MZ)
+                END IF
+              END IF
+            END DO
+          END DO
+        END DO
+      END DO
+      IF(JMAX.EQ.0)THEN
+        IF(JCOUPL.GT.0)THEN
+          WRITE(84)V
+        ELSE
+          WRITE(84)VR
+        END IF
+      ELSE
+        IF(JCOUPL.GT.0)THEN
+          WRITE(94)VM
+        ELSE
+          WRITE(94)VMR
+        END IF
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE CORIOL(NMODE,NATOM,QQ,XZ,AB,
+     1B,AA,BB,XX,X0,XL,XM,ZZ)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      LOGICAL LINEAR
+      DIMENSION QQ(NMODE),XZ(NMODE,NMODE,3),AB(NMODE,3)
+      DIMENSION B(NMODE,NMODE),AA(NMODE,3,3),BB(NMODE)
+      DIMENSION XX(NATOM,3),X0(NATOM,3),XL(NATOM,NMODE,3),XM(NATOM)
+      DIMENSION G1(3,3),SUP1(3,3),SUP2(3,3),SUP3(10)
+      COMMON/TYPE/LINEAR
+      COMMON/FILASS/IOUT,INP
+      COMMON/COUPLE/ICOUPL,JCOUPL
+      COMMON/MOMI/XIN(3,3),XMU(3,3)
+C**TEMPORARY (DIMENSIONS)
+      COMMON/MULT/MULT(1000)
+C**CARTESIAN COORDINATES
+      DO I=1,NATOM
+        DO J=1,3
+          XX(I,J)=X0(I,J)
+          DO K=1,NMODE
+            XX(I,J)=XX(I,J)+XL(I,K,J)*QQ(K)/SQRT(XM(I))
+          END DO
+        END DO
+      END DO
+      IF(LINEAR)GO TO 1000
+C**MOMENT OF INERTIA TENSOR FOR BENT MOLECULES
+      DO K=1,NMODE
+        DO I=1,3
+          Y=0
+          DO J=1,NMODE
+            Y=Y+QQ(J)*XZ(J,K,I)*MULT(K)
+          END DO
+          AB(K,I)=Y
+        END DO
+      END DO
+      DO I=1,3
+        DO J=1,3
+          G1(I,J)=0
+        END DO
+      END DO
+      DO I=1,3
+        DO J=1,3
+          DO K=1,NMODE
+            DO J1=1,NMODE
+              DO J2=1,NMODE
+                G1(I,J)=G1(I,J)+QQ(J1)*QQ(J2)*XZ(J1,K,I)*XZ(J2,K,J)
+     1          *MULT(K)
+              END DO
+            END DO
+          END DO
+        END DO
+      END DO
+C**CALCULATE INVERSE MOMENT OF INERTIA
+      ZZ=0
+      DO I=1,NATOM
+        DO J=1,3
+          ZZ=ZZ+XM(I)*XX(I,J)*XX(I,J)
+        END DO
+      END DO
+      DO I=1,3
+        DO J=1,3
+          XIN(I,J)=0
+        END DO
+      END DO
+      DO I=1,3
+        XIN(I,I)=ZZ
+        DO J=1,3
+          DO K=1,NATOM
+            XIN(I,J)=XIN(I,J)-XM(K)*XX(K,I)*XX(K,J)
+          END DO
+        END DO
+      END DO
+      DO I=1,3
+        DO J=1,3
+          XIN(I,J)=XIN(I,J)-G1(I,J)
+        END DO
+      END DO
+      DO I=1,3
+        DO J=1,3
+          SUP1(I,J)=XIN(I,J)
+        END DO
+      END DO
+      IFAIL=1
+      CALL MATINV(SUP1,3,3,SUP2,SUP3,IFAIL)
+      IF(IFAIL.NE.0)THEN
+        WRITE(IOUT,*)'ERROR IN MATINV'
+        STOP 'ERROR IN MATINV'
+      END IF
+      DO I=1,3
+        DO J=1,3
+          XMU(I,J)=SUP2(I,J)
+        END DO
+      END DO
+      ZZ=-(XMU(1,1)+XMU(2,2)+XMU(3,3))/8
+      DO L=1,NMODE
+        DO K=1,NMODE
+          Y=0
+          DO I=1,3
+            DO J=1,3
+              Y=Y+XMU(I,J)*AB(L,I)*AB(K,J)
+            END DO
+          END DO
+          B(L,K)=Y/2
+        END DO
+      END DO
+      DO K=1,NMODE
+        DO L=1,3
+          DO I=1,3
+            AA(K,L,I)=0
+          END DO
+        END DO
+      END DO
+      DO L=1,NMODE
+        DO I=1,3
+          DO J=1,3
+            DO K=1,NMODE
+              AA(L,I,J)=AA(L,I,J)+AB(K,I)*XZ(K,L,J)*
+     1        MULT(K)*MULT(L)
+            END DO
+          END DO
+        END DO
+      END DO
+      DO L=1,NMODE
+        Y=0
+        DO I=1,3
+          DO J=1,3
+            Y=Y+XMU(I,J)*AA(L,I,J)
+          END DO
+        END DO
+        BB(L)=Y/2
+      END DO
+      RETURN
+1000  CONTINUE
+C**MOMENT OF INERTIA TENSOR FOR LINEAR MOLECULES
+      DO K=1,NMODE
+C       DO I=1,3
+C**X-DIRECTION ONLY
+          I=1
+          Y=0
+          DO J=1,NMODE
+            Y=Y+QQ(J)*XZ(J,K,I)*MULT(K)
+          END DO
+          AB(K,I)=Y
+C       END DO
+      END DO
+      DO I=1,3
+        DO J=1,3
+          G1(I,J)=0
+        END DO
+      END DO
+C     DO I=1,3
+C       DO J=1,3
+C**X-DIRECTIONS ONLY
+          I=1
+          J=1
+          DO K=1,NMODE
+            DO J1=1,NMODE
+              DO J2=1,NMODE
+                G1(I,J)=G1(I,J)+QQ(J1)*QQ(J2)*XZ(J1,K,I)*XZ(J2,K,J)
+     1          *MULT(K)
+              END DO
+            END DO
+          END DO
+C       END DO
+C     END DO
+C**NO WATSON CORRECTION IF LINEAR
+      ZZ=0
+C**CALCULATE INVERSE MOMENT OF INERTIA
+      AI0=0
+      DO I=1,NATOM
+        AI0=AI0+XM(I)*X0(I,3)*X0(I,3)
+      END DO
+      AIP=AI0
+      DO I=1,NATOM
+        DO K=1,NMODE
+          AIP=AIP+SQRT(XM(I))*X0(I,3)*XL(I,K,3)*QQ(K)
+        END DO
+      END DO
+      YMU=AI0/(AIP*AIP)
+      DO L=1,NMODE
+        DO K=1,NMODE
+          Y=0
+C         DO I=1,3
+C           DO J=1,3
+C**X-DIRECTIONS ONLY
+              I=1
+              J=1
+              Y=Y+YMU*AB(L,I)*AB(K,J)
+C           END DO
+C         END DO
+          B(L,K)=Y/2
+        END DO
+      END DO
+      DO K=1,NMODE
+        DO L=1,3
+C         DO I=1,3
+C**X-DIRECTION ONLY
+            I=1
+            AA(K,L,I)=0
+C         END DO
+        END DO
+      END DO
+      DO L=1,NMODE
+C       DO I=1,3
+C         DO J=1,3
+C**X-DIRECTIONS ONLY
+            I=1
+            J=1
+            DO K=1,NMODE
+              AA(L,I,J)=AA(L,I,J)+AB(K,I)*XZ(K,L,J)*
+     1        MULT(K)*MULT(L)
+            END DO
+C         END DO
+C       END DO
+      END DO
+      DO L=1,NMODE
+        Y=0
+C       DO I=1,3
+C         DO J=1,3
+C**X-DIRECTIONS ONLY
+            I=1
+            J=1
+            Y=Y+YMU*AA(L,I,J)
+C         END DO
+C       END DO
+        BB(L)=Y/2
+      END DO
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE GETAB(NMODE,XZ,QQ,AB)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION QQ(NMODE),XZ(NMODE,NMODE,3),AB(NMODE,3)
+C**TEMPORARY (DIMENSIONS)
+      COMMON/MULT/MULT(1000)
+      DO K=1,NMODE
+        DO I=1,3
+          Y=0
+          DO J=1,NMODE
+            Y=Y+QQ(J)*XZ(J,K,I)*MULT(K)
+          END DO
+          AB(K,I)=Y
+        END DO
+      END DO
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE REFORM(H,XK,NB,NV,M,W,YK,SK)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION H(NB,M,3),XK(NB,NB),W(NB)
+      DIMENSION YK(NB,NB),SK(NB,NB)
+      COMMON/PATH/ISCFCI
+      COMMON/CYCLE/ICYCLE
+      COMMON/CIDIAG/ICID,ICI,JCI
+      COMMON/DUMP/JDUMP,IDUMP
+C**CONTRACTED PRIMITIVES COEFFICIENTS IN XK
+C**MOST RECENT SCF COEFFICIENTS IN XK
+      DO K=1,3
+        DO J=1,M
+          DO I=1,NB
+            W(I)=0
+            DO IY=1,NB
+              W(I)=W(I)+XK(IY,I)*H(IY,J,K)
+            END DO
+          END DO
+          DO I=1,NB
+            H(I,J,K)=W(I)
+          END DO
+        END DO
+      END DO
+      IF(ISCFCI.GT.0.AND.ICI.LT.0.AND.IDUMP.NE.0)THEN
+C**PREVIOUS SCF COEFFICIENTS ON (58)
+        IF(ICYCLE.GT.1)THEN
+          DO I=1,NV
+            READ(58)W
+            DO IY=1,NB
+              SK(IY,I)=W(IY)
+            END DO
+          END DO
+          CALL DGEMM('T','T',NB,NB,NB,1.0D0,XK(1,1),
+     &    NB,SK(1,1),NB,0.0D0,YK(1,1),NB)
+          DO I=1,NV
+            DO IY=1,NB
+              XK(IY,I)=YK(IY,I)
+            END DO
+          END DO
+        END IF
+C**INITIAL CONTRACTION COEFFICIENTS ON (60)
+C**MOST RECENT SCF COEFFICIENTS ON (59)
+        IF(ICYCLE.EQ.0)THEN
+          INP=60
+          WRITE(INP)NV,NB
+        END IF
+        IF(ICYCLE.NE.0)INP=59
+        DO I=1,NV
+          DO IY=1,NB
+            W(IY)=XK(IY,I)
+          END DO
+          WRITE(INP)W
+        END DO
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE RECYCL(W,NB,INP,IOUT)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION W(NB)
+      DO I=1,NB
+        READ(INP)W
+        WRITE(IOUT)W
+      END DO
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE OUTVCI(NB,M,H,W)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION H(NB,M,3),W(NB)
+      DO K=1,3
+        DO J=1,M
+          DO I=1,NB
+            W(I)=H(I,J,K)
+          END DO
+          WRITE(60)W
+        END DO
+      END DO
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE INDUMP(NDUMP,NVSYM,IDUMP,ISCFCI)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION NDUMP(IDUMP,NVSYM)
+      COMMON/FILASS/IOUT,INP
+      DO I=1,NVSYM
+        READ(INP,*)(NDUMP(J,I),J=1,IDUMP)
+        DO J=1,IDUMP
+          IF(NDUMP(J,I).LT.0)NDUMP(J,I)=0
+          IF(NDUMP(J,I).GT.ISCFCI)NDUMP(J,I)=0
+        END DO
+      END DO
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE OUTBAS(JSIZE,IP,ISIZE,NMODE)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION IP(ISIZE,NMODE)
+      WRITE(60)JSIZE
+      DO I=1,JSIZE
+        WRITE(60)(IP(I,J),J=1,NMODE)
+      END DO
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE OUTCIV(ISIZE,XK,X,NDUMP,NSYM,JDUMP,IDUMP)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      LOGICAL LANCZ,LANZA,LANZB
+      DIMENSION NDUMP(IDUMP,1),XK(ISIZE,1),X(ISIZE)
+      COMMON/LANCZO/LANCZ,LANZA,LANZB
+      WRITE(60)IDUMP
+      DO J=1,IDUMP
+        K=J
+        IF(JDUMP.LT.0)THEN
+          K=NDUMP(J,NSYM)
+        END IF
+        WRITE(60)K
+        IF(K.NE.0)THEN
+          IF(LANZA)THEN
+            REWIND 54
+            DO M=1,K
+              READ(54)X
+            END DO
+            WRITE(60)(X(I),I=1,ISIZE)
+          ELSE
+            WRITE(60)(XK(I,K),I=1,ISIZE)
+          END IF
+        END IF
+      END DO
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE RZETA(NATOM,NMODE,XL,XZ,X0,R0,XM)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION XL(NATOM,NMODE,3),XZ(NMODE,NMODE,3)
+      DIMENSION X0(NATOM,3),R0(NATOM,NATOM),XM(NATOM)
+      COMMON/FUNDAM/WAVENM,ATTOJ,BOHR,ELMASS,RAD
+      COMMON/PRINT/IPRINT,JPRINT
+      COMMON/FILASS/IOUT,INP
+200   FORMAT(///,1X,'EQUILIBRIUM BOND DISTANCES',/)
+205   FORMAT(1X,'ATOM ',I2,' ATOM ',I2,' ',F12.6)
+210   FORMAT(///,1X,'CORIOLIS COUPLING CONSTANTS',/)
+215   FORMAT(6(1X,F12.7))
+220   FORMAT(/,1X,'X-DIRECTION')
+225   FORMAT(/,1X,'Y-DIRECTION')
+230   FORMAT(/,1X,'Z-DIRECTION')
+C**CORIOLIS COUPLING
+      DO J=1,3
+        DO L=1,NMODE
+          DO K=1,NMODE
+            XZ(K,L,J)=0
+          END DO
+        END DO
+      END DO
+      DO I=1,NATOM
+        DO K=1,NMODE
+          DO L=1,NMODE
+            XZ(K,L,1)=XZ(K,L,1)+(XL(I,K,2)*XL(I,L,3)-
+     1                           XL(I,K,3)*XL(I,L,2))
+            XZ(K,L,2)=XZ(K,L,2)+(XL(I,K,3)*XL(I,L,1)-
+     1                           XL(I,K,1)*XL(I,L,3))
+            XZ(K,L,3)=XZ(K,L,3)+(XL(I,K,1)*XL(I,L,2)-
+     1                           XL(I,K,2)*XL(I,L,1))
+          END DO
+        END DO
+      END DO
+      IF(IPRINT.GT.2)WRITE(IOUT,210)
+      IF(IPRINT.GT.2)WRITE(IOUT,220)
+      DO K=1,NMODE
+        IF(IPRINT.GT.2)WRITE(IOUT,215)(XZ(K,L,1),L=1,NMODE)
+      END DO
+      IF(IPRINT.GT.2)WRITE(IOUT,225)
+      DO K=1,NMODE
+        IF(IPRINT.GT.2)WRITE(IOUT,215)(XZ(K,L,2),L=1,NMODE)
+      END DO
+      IF(IPRINT.GT.2)WRITE(IOUT,230)
+      DO K=1,NMODE
+        IF(IPRINT.GT.2)WRITE(IOUT,215)(XZ(K,L,3),L=1,NMODE)
+      END DO
+C**EQUILIBRIUM BOND LENGTHS
+      DO I=1,NATOM
+        DO J=1,I
+          R0(J,I)=0
+        END DO
+      END DO
+      DO K=1,3
+        DO I=1,NATOM
+          DO J=1,I
+            R0(J,I)=R0(J,I)+(X0(I,K)-X0(J,K))*(X0(I,K)-X0(J,K))
+          END DO
+        END DO
+      END DO
+      IF(IPRINT.GT.2)WRITE(IOUT,200)
+      DO I=1,NATOM
+        DO J=1,I
+          R0(J,I)=SQRT(R0(J,I))
+          R0(I,J)=R0(J,I)
+          IF(I.NE.J.AND.IPRINT.GT.2)WRITE(IOUT,205)I,J,R0(I,J)
+        END DO
+      END DO
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE TRZETA(NATOM,NMODE,XL,XZ)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION XZ(NMODE,NMODE,3),XL(NATOM,NMODE,3)
+C**CORIOLIS COUPLING
+      DO J=1,3
+        DO L=1,NMODE
+          DO K=1,NMODE
+            XZ(K,L,J)=0
+          END DO
+        END DO
+      END DO
+      DO I=1,NATOM
+        DO K=1,NMODE
+          DO L=1,NMODE
+            XZ(K,L,1)=XZ(K,L,1)+(XL(I,K,2)*XL(I,L,3)-
+     1                           XL(I,K,3)*XL(I,L,2))
+            XZ(K,L,2)=XZ(K,L,2)+(XL(I,K,3)*XL(I,L,1)-
+     1                           XL(I,K,1)*XL(I,L,3))
+            XZ(K,L,3)=XZ(K,L,3)+(XL(I,K,1)*XL(I,L,2)-
+     1                           XL(I,K,2)*XL(I,L,1))
+          END DO
+        END DO
+      END DO
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE INTARR(NBF,MBF,K,I1,I2,I3)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION NBF(1),MBF(1)
+      I1=NBF(K)*MBF(K)*3
+      I2=MBF(K)
+      I3=NBF(K)
+      RETURN
+      END
+C**************************************************************
+C**************************************************************
+      SUBROUTINE INTCPL(MAXCPL,NMODE,M,K,I)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION MAXCPL(NMODE,M)
+      I=MAXCPL(K,M)
+      RETURN
+      END
+C**************************************************************
+C**************************************************************
+      SUBROUTINE COMPARE(ISTAT,NSTAT,IP,ISIZE,NMODE,ITHAT,ITHIS,IND)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION ISTAT(NSTAT,NMODE),IP(ISIZE,NMODE)
+      IND=1
+      DO K=1,NMODE
+        IF(ISTAT(ITHAT,K).NE.IP(ITHIS,K))IND=0
+      END DO
+      RETURN
+      END
+C**************************************************************
+C**************************************************************
+      SUBROUTINE MOVEIP(ISTAT,NSTAT,IP,ISIZE,NMODE)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION ISTAT(NSTAT,NMODE),IP(ISIZE,NMODE)
+      DO K=1,NMODE
+        DO I=1,ISIZE
+          IP(I,K)=ISTAT(I,K)
+        END DO
+      END DO
+      RETURN
+      END
+C**************************************************************
+C**************************************************************
+      SUBROUTINE GETJP1(JP1,JSIZE1,NMODE,K,JCI,NMAX,ITOT1,
+     1MAXBAS)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION JP1(JSIZE1,NMODE),MAXBAS(NMODE,1)
+      IF(K.EQ.1)THEN
+        DO J=1,NMODE
+          DO I=1,JSIZE1
+            JP1(I,J)=1
+          END DO
+        END DO
+      END IF
+      DO I1=2,JCI
+        IF(I1.GT.MAXBAS(K,1))GO TO 100
+        IF(I1.GT.NMAX)GO TO 100
+        ITOT1=ITOT1+1
+        JP1(ITOT1,K)=I1
+100     CONTINUE
+      END DO
+      RETURN
+      END
+C**************************************************************
+C**************************************************************
+      SUBROUTINE GETJP2(JP2,JSIZE2,NMODE,K,L,JCI,NMAX,ITOT2,
+     1MAXBAS)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION JP2(JSIZE2,NMODE),MAXBAS(NMODE,2)
+      IF(K.EQ.2.AND.L.EQ.1)THEN
+        DO J=1,NMODE
+          DO I=1,JSIZE2
+            JP2(I,J)=1
+          END DO
+        END DO
+      END IF
+      DO I1=2,JCI
+        IF(I1.GT.MAXBAS(K,2))GO TO 101
+        DO I2=2,JCI
+          IF(I2.GT.MAXBAS(L,2))GO TO 100
+          IF(I1+I2.GT.NMAX)GO TO 100
+          ITOT2=ITOT2+1
+          JP2(ITOT2,K)=I1
+          JP2(ITOT2,L)=I2
+100       CONTINUE
+        END DO
+101     CONTINUE
+      END DO
+      RETURN
+      END
+C**************************************************************
+C**************************************************************
+      SUBROUTINE GETJP3(JP3,JSIZE3,NMODE,K,L,N,JCI,NMAX,ITOT3,
+     1MAXBAS)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION JP3(JSIZE3,NMODE),MAXBAS(NMODE,3)
+      IF(K.EQ.3.AND.L.EQ.2.AND.N.EQ.1)THEN
+        DO J=1,NMODE
+          DO I=1,JSIZE3
+            JP3(I,J)=1
+          END DO
+        END DO
+      END IF
+      DO I1=2,JCI
+        IF(I1.GT.MAXBAS(K,3))GO TO 102
+        DO I2=2,JCI
+          IF(I2.GT.MAXBAS(L,3))GO TO 101
+          DO I3=2,JCI
+            IF(I3.GT.MAXBAS(N,3))GO TO 100
+            IF(I1+I2+I3.GT.NMAX)GO TO 100
+            ITOT3=ITOT3+1
+            JP3(ITOT3,K)=I1
+            JP3(ITOT3,L)=I2
+            JP3(ITOT3,N)=I3
+100         CONTINUE
+          END DO
+101       CONTINUE
+        END DO
+102     CONTINUE
+      END DO
+      RETURN
+      END
+C**************************************************************
+C**************************************************************
+      SUBROUTINE GETJP4(JP4,JSIZE4,NMODE,K,L,N,M,JCI,NMAX,ITOT4,
+     1MAXBAS)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION JP4(JSIZE4,NMODE),MAXBAS(NMODE,4)
+      IF(K.EQ.4.AND.L.EQ.3.AND.N.EQ.2.AND.M.EQ.1)THEN
+        DO J=1,NMODE
+          DO I=1,JSIZE4
+            JP4(I,J)=1
+          END DO
+        END DO
+      END IF
+      DO I1=2,JCI
+        IF(I1.GT.MAXBAS(K,4))GO TO 103
+        DO I2=2,JCI
+          IF(I2.GT.MAXBAS(L,4))GO TO 102
+          DO I3=2,JCI
+            IF(I3.GT.MAXBAS(N,4))GO TO 101
+            DO I4=2,JCI
+              IF(I4.GT.MAXBAS(M,4))GO TO 100
+              IF(I1+I2+I3+I4.GT.NMAX)GO TO 100
+              ITOT4=ITOT4+1
+              JP4(ITOT4,K)=I1
+              JP4(ITOT4,L)=I2
+              JP4(ITOT4,N)=I3
+              JP4(ITOT4,M)=I4
+100           CONTINUE
+            END DO
+101         CONTINUE
+          END DO
+102       CONTINUE
+        END DO
+103     CONTINUE
+      END DO
+      RETURN
+      END
+C**************************************************************
+C**************************************************************
+      SUBROUTINE GETJP(IP,ISIZE,JP,JSIZE,NMODE,ITOT,JTOT)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION IP(ISIZE,NMODE),JP(JSIZE,NMODE)
+      DO J=1,JTOT
+        ITOT=ITOT+1
+        DO K=1,NMODE
+          IP(ITOT,K)=JP(J,K)
+        END DO
+      END DO
+      RETURN
+      END
+C**************************************************************
+C**************************************************************
+      SUBROUTINE PUTJP(JP,JSIZE,IP,ISIZE,NMODE,NS)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION IP(ISIZE,NMODE),JP(JSIZE,NMODE)
+      COMMON/FILASS/IOUT,INP
+      COMMON/CIDIAG/ICID,ICI,JCI
+C**TEMPORARY (DIMENSIONS)
+      COMMON/SYMM/NVSYM,NWSYM,NSYM(10),ISYM(10,100),NTOT(10)
+      JTOT=0
+      DO N=1,NS-1
+        JTOT=JTOT+NTOT(N)
+      END DO
+      DO I=1,NTOT(NS)
+        JTOT=JTOT+1
+        DO K=1,NMODE
+          IP(I,K)=JP(JTOT,K)
+        END DO
+      END DO
+      RETURN
+      END
+C**************************************************************
+C**************************************************************
+      SUBROUTINE GETSZ(ISIZE,NMODE,JCI)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      COMMON/VCIMAX/NMAX
+      COMMON/FILASS/IOUT,INP
+      NSIZE=0
+      DO I=1,ISIZE
+        NSUM=0
+        DO K=1,NMODE
+          INCR=JCI**(K-1)
+          ITOT=JCI*INCR
+          NPOS=1+MOD(I-1,ITOT)
+          M=1+(NPOS-1)/INCR
+          NSUM=NSUM+M
+        END DO
+        IF(NSUM.LE.NMAX)NSIZE=NSIZE+1
+      END DO
+      ISIZE=NSIZE
+      RETURN
+      END
+C**************************************************************
+C**************************************************************
+      SUBROUTINE GETIP(IP,JP,ISIZE,JSIZE,NMODE,JCI,ICI)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION IP(ISIZE,NMODE),JP(ISIZE,NMODE)
+      COMMON/FILASS/IOUT,INP
+      COMMON/VCIMAX/NMAX
+C**TEMPORARY (DIMENSIONS)
+      COMMON/SYMM/NVSYM,NWSYM,NSYM(10),ISYM(10,100),NTOT(10)
+      IF(ICI.LT.0)THEN
+        IF(NMAX.LE.0)THEN
+          DO K=1,NMODE
+            IDO=JCI**(NMODE-K)
+            JDO=JCI**(K-1)
+            I=0
+            DO L=1,IDO
+              DO J=1,JCI
+                DO N=1,JDO
+                  I=I+1
+                  JP(I,K)=J
+                END DO
+              END DO
+            END DO
+          END DO
+        ELSE
+          NSIZE=0
+          DO I=1,JSIZE
+            NSUM=0
+            DO K=1,NMODE
+              INCR=JCI**(K-1)
+              ITOT=JCI*INCR
+              NPOS=1+MOD(I-1,ITOT)
+              M=1+(NPOS-1)/INCR
+              IP(1,K)=M
+              NSUM=NSUM+M
+            END DO
+            IF(NSUM.LE.NMAX)THEN
+              NSIZE=NSIZE+1
+              DO K=1,NMODE
+                JP(NSIZE,K)=IP(1,K)
+              END DO
+            END IF
+          END DO
+        END IF
+        DO K=1,NMODE
+          DO I=1,ISIZE
+            IP(I,K)=JP(I,K)
+          END DO
+        END DO
+      ELSE
+        DO K=1,NMODE
+          DO I=1,ISIZE
+            JP(I,K)=IP(I,K)
+          END DO
+        END DO
+      END IF
+C*******************************
+C*******************************
+      NTOT(1)=ISIZE
+      IF(NVSYM.GT.1)THEN
+        ITOT=0
+        DO N=1,NVSYM
+C**TOTALLY SYMMETRIC FIRST
+          IF(N.EQ.1)THEN
+            DO I=1,ISIZE
+              INDEX=0
+              DO J=2,NWSYM
+                JNDEX=0
+                DO M=1,NSYM(J)
+                  K=ISYM(J,M)
+                  JNDEX=JNDEX+MOD(JP(I,K)-1,2)
+                END DO
+                IF(MOD(JNDEX,2).NE.0)INDEX=1
+              END DO
+              IF(INDEX.EQ.0)THEN
+                ITOT=ITOT+1
+                DO K=1,NMODE
+                  IP(ITOT,K)=JP(I,K)
+                END DO
+              END IF
+            END DO
+C**C4V
+            IF(NWSYM.EQ.4)THEN
+              DO I=1,ISIZE
+                INDEX=0
+                DO J=2,NWSYM
+                  JNDEX=0
+                  DO M=1,NSYM(J)
+                    K=ISYM(J,M)
+                    JNDEX=JNDEX+MOD(JP(I,K)-1,2)
+                  END DO
+                  IF(MOD(JNDEX,2).EQ.0)INDEX=1
+                END DO
+                IF(INDEX.EQ.0)THEN
+                  ITOT=ITOT+1
+                  DO K=1,NMODE
+                    IP(ITOT,K)=JP(I,K)
+                  END DO
+                END IF
+              END DO
+            END IF
+          ELSE
+C**REMAINING SYMMETRIES
+            IF(N.LE.NWSYM)THEN
+C**INDIVIDUAL SYMMETRIES (WITH A1)
+              DO I=1,ISIZE
+                INDEX=0
+                DO J=2,NWSYM
+                  JNDEX=0
+                  KNDEX=0
+                  DO M=1,NSYM(J)
+                    K=ISYM(J,M)
+                    IF(N.EQ.J)KNDEX=KNDEX+MOD(JP(I,K)-1,2)
+                    IF(N.NE.J)JNDEX=JNDEX+MOD(JP(I,K)-1,2)
+                  END DO
+                  IF(N.EQ.J.AND.MOD(KNDEX,2).EQ.0)INDEX=1
+                  IF(N.NE.J.AND.MOD(JNDEX,2).NE.0)INDEX=1
+                END DO
+                IF(INDEX.EQ.0)THEN
+                  ITOT=ITOT+1
+                  DO K=1,NMODE
+                    IP(ITOT,K)=JP(I,K)
+                  END DO
+                END IF
+              END DO
+C**C4V
+              IF(NWSYM.EQ.4)THEN
+C**COMBINATION SYMMETRIES (WITH EVEN QUANTA MODE N)
+                DO I=1,ISIZE
+                  INDEX=0
+                  DO J=2,NWSYM
+                    JNDEX=0
+                    KNDEX=0
+                    DO M=1,NSYM(J)
+                      K=ISYM(J,M)
+                      IF(N.EQ.J)KNDEX=KNDEX+MOD(JP(I,K)-1,2)
+                      IF(N.NE.J)JNDEX=JNDEX+MOD(JP(I,K)-1,2)
+                    END DO
+                    IF(N.EQ.J.AND.MOD(KNDEX,2).NE.0)INDEX=1
+                    IF(N.NE.J.AND.MOD(JNDEX,2).EQ.0)INDEX=1
+                  END DO
+                  IF(INDEX.EQ.0)THEN
+                    ITOT=ITOT+1
+                    DO K=1,NMODE
+                      IP(ITOT,K)=JP(I,K)
+                    END DO
+                  END IF
+                END DO
+              END IF
+            ELSE
+C**COMBINATION SYMMETRIES (A2 FOR H2CO)
+              DO I=1,ISIZE
+                INDEX=0
+                DO J=2,NWSYM
+                  JNDEX=0
+                  DO M=1,NSYM(J)
+                    K=ISYM(J,M)
+                    JNDEX=JNDEX+MOD(JP(I,K)-1,2)
+                  END DO
+                  IF(MOD(JNDEX,2).EQ.0)INDEX=1
+                END DO
+                IF(INDEX.EQ.0)THEN
+                  ITOT=ITOT+1
+                  DO K=1,NMODE
+                    IP(ITOT,K)=JP(I,K)
+                  END DO
+                END IF
+              END DO
+            END IF
+          END IF
+          NTOT(N)=ITOT
+          DO M=1,N-1
+            NTOT(N)=NTOT(N)-NTOT(M)
+          END DO
+        END DO
+C**H2O  (C2V) NVSYM=2, NWSYM=2  ONLY HAVE   1 AND 2 (A1 , B2)
+C**H2CO (C2V) NVSYM=4, NWSYM=3  INTERCHANGE 3 AND 4 (B1 - A2)
+C**HAEM (C4V) NVSYM=4, NWSYM=4  INTERCHANGE 3 AND 4 (B1 - A2)
+C       IF(NVSYM.EQ.4)THEN
+C         DO K=1,NMODE
+C           DO I=1,ISIZE
+C             JP(I,K)=IP(I,K)
+C           END DO
+C         END DO
+C         I3=NTOT(1)+NTOT(2)
+C         I4=I3+NTOT(3)
+C         DO K=1,NMODE
+C           DO I=1,NTOT(4)
+C             IP(I3+I,K)=JP(I4+I,K)
+C           END DO
+C         END DO
+C         I4=I3+NTOT(4)
+C         DO K=1,NMODE
+C           DO I=1,NTOT(3)
+C             IP(I4+I,K)=JP(I3+I,K)
+C           END DO
+C         END DO
+C         I=NTOT(4)
+C         NTOT(4)=NTOT(3)
+C         NTOT(3)=I
+C       END IF
+C************************************************************
+      END IF
+      DO K=1,NMODE
+        DO I=1,ISIZE
+          JP(I,K)=IP(I,K)
+        END DO
+      END DO
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE BONDS(NATOM,RR,XX)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION RR(NATOM,NATOM),XX(NATOM,3)
+C**INSTANTANEOUS BOND LENGTHS
+      DO I=1,NATOM
+        DO J=1,I
+          RR(J,I)=0
+        END DO
+      END DO
+      DO K=1,3
+        DO I=1,NATOM
+          DO J=1,I
+            RR(J,I)=RR(J,I)+(XX(I,K)-XX(J,K))*(XX(I,K)-XX(J,K))
+          END DO
+        END DO
+      END DO
+      DO I=1,NATOM
+        DO J=1,I
+          RR(J,I)=SQRT(RR(J,I))
+          RR(I,J)=RR(J,I)
+        END DO
+      END DO
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE EQUBA(R0,NATOM)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION R0(NATOM,NATOM),R(3)
+      COMMON/FUNDAM/WAVENM,ATTOJ,BOHR,ELMASS,RAD
+      COMMON/FILASS/IOUT,INP
+C**EQUILIBRIUM BONDS AND ANGLES (ANGSTROMS, DEGREES)
+235   FORMAT(/,1X,'EQUILIBRIUM BONDS',/)
+240   FORMAT(3F20.12)
+      WRITE(IOUT,235)
+      IBOND=0
+      DO I=1,NATOM
+        DO J=1,I
+          IF(I.NE.J)THEN
+            IBOND=IBOND+1
+            R(IBOND)=R0(J,I)
+            IF((I.EQ.NATOM.AND.J.EQ.I-1).OR.IBOND.EQ.3)THEN
+              WRITE(IOUT,240)(R(K)*BOHR,K=1,IBOND)
+            END IF
+            IF(IBOND.EQ.3)IBOND=0
+          END IF
+        END DO
+      EnD DO
+      RETURN
+      END
+C**************************************************************
+C**************************************************************
+      SUBROUTINE PRSCF(ISTAT,NSTAT,NMODE,ISTATE,E0,E,J,KA,KC,IND)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION ISTAT(NSTAT,NMODE)
+      COMMON/PRINT/IPRINT,JPRINT
+      COMMON/FILASS/IOUT,INP
+200   FORMAT(/,1X,'STATE ',I4,'  J = ',I3,'  Ka = ',I3,' Kc = ',I3,/,
+     1(20I4))
+205   FORMAT(  1X,'OLD ENERGY = ',F12.4,' NEW ENERGY = ',F12.4,/)
+210   FORMAT(  1X,'OLD ENERGY = ',F12.4,' NEW ENERGY = ',F12.4,
+     1' (ZERO POINT)',/)
+      IF(IND.EQ.0)THEN
+        IF(IPRINT.GT.1)THEN
+          WRITE(IOUT,200)ISTATE,J,KA,KC,(ISTAT(ISTATE,MODE)-1,MODE=1,
+     1    NMODE)
+          IF(ISTATE.NE.1)THEN
+            WRITE(IOUT,205)E0,E
+          ELSE
+            WRITE(IOUT,210)E0,E
+          END IF
+        END IF
+      ELSE
+        WRITE(IND)ISTATE,J,KA,KC,(ISTAT(ISTATE,MODE)-1,MODE=1,
+     1  NMODE),E
+      END IF
+      RETURN
+      END
+C**************************************************************
+C**************************************************************
+      SUBROUTINE PRCI(ISTAT,NSTAT,NMODE,ISTATE,JSTATE,KSTATE,
+     1COEFFI,COEFFJ,COEFFK,JX,E,EVL,J,KA,KC,IND)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      LOGICAL PRT
+      DIMENSION ISTAT(NSTAT,NMODE)
+      COMMON/CIDIAG/ICID,ICI,JCI
+      COMMON/PRINT/IPRINT,JPRINT
+      COMMON/FILASS/IOUT,INP
+200   FORMAT(/,1X,'STATE ',I4,'  J = ',I3,'  Ka = ',I3,' Kc = ',I3,/,
+     11X,'First  (coeff: ',F7.4,'): ',(20I4))
+201   FORMAT(1X,'Second (coeff: ',F7.4,'): ',(20I4))
+202   FORMAT(1X,'Second:        ',7X,'   ',(20I4))
+203   FORMAT(1X,'Third  (coeff: ',F7.4,'): ',(20I4))
+204   FORMAT(1X,'Third :        ',7X,'   ',(20I4))
+205   FORMAT(  1X,'CI ENERGY = ',F12.4)
+210   FORMAT(  1X,'CI ENERGY = ',F12.4,' (ZERO POINT)')
+220   FORMAT()
+      PRT=(ICID.NE.0.OR.(ICID.EQ.0.AND.IPRINT.GT.1))
+      IF(PRT)WRITE(IOUT,200)JX,J,KA,KC,COEFFI,(ISTAT(ISTATE,MODE)-1,
+     1MODE=1,NMODE)
+      IF(PRT.AND.JPRINT.LT.-1)THEN
+        IF(ICID.EQ.0)
+     1  WRITE(IOUT,201)COEFFJ,(ISTAT(JSTATE,MODE)-1,MODE=1,NMODE)
+        IF(ICID.NE.0)
+     1  WRITE(IOUT,202)(ISTAT(JSTATE,MODE)-1,MODE=1,NMODE)
+      END IF
+      IF(PRT.AND.JPRINT.LT.-2)THEN
+        IF(ICID.EQ.0)
+     1  WRITE(IOUT,203)COEFFK,(ISTAT(KSTATE,MODE)-1,MODE=1,NMODE)
+        IF(ICID.NE.0)
+     1  WRITE(IOUT,204)(ISTAT(KSTATE,MODE)-1,MODE=1,NMODE)
+      END IF
+      IF(JX.NE.0)THEN
+        EX=E
+        IF(PRT)WRITE(IOUT,205)E
+      ELSE
+        EX=EVL
+        IF(PRT)WRITE(IOUT,210)EVL
+      END IF
+      IF(PRT)WRITE(IOUT,220)
+      WRITE(IND)JX,J,KA,KC,(ISTAT(ISTATE,MODE)-1,MODE=1,NMODE),EX
+      RETURN
+      END
+C**************************************************************
+C**************************************************************
+      SUBROUTINE ENERGY(ISTAT,NSTAT,NMODE,ISTATE,MODE,EVAL,E,ESCF,WRK)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION ISTAT(NSTAT,NMODE),EVAL(1),WRK(1)
+      I=ISTAT(ISTATE,MODE)
+      E=EVAL(I)
+      ESCF=WRK(I)
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE ENERCF(CFS,ISIZMX,EVCI,ISIZE,NVAL,J21,KROT,NS,XK,X,
+     1WRK)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      LOGICAL LANCZ,LANZA,LANZB
+      DIMENSION CFS(ISIZMX,NVAL,J21,1),EVCI(NVAL,J21,1),XK(ISIZE,NVAL)
+      DIMENSION X(ISIZE),WRK(ISIZE)
+      COMMON/LANCZO/LANCZ,LANZA,LANZB
+      IF(LANZA)REWIND 54
+      DO I=1,NVAL
+        EVCI(I,KROT,NS)=WRK(I)
+        IF(LANZA)THEN
+          READ(54)X
+          DO J=1,ISIZE
+            CFS(J,I,KROT,NS)=X(J)
+          END DO
+        ELSE
+          DO J=1,ISIZE
+            CFS(J,I,KROT,NS)=XK(J,I)
+          END DO
+        END IF
+      END DO
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE OUT50(H,NN,MM,ISTAT,NSTAT,NMODE,ISTATE,MODE)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION H(NN,MM,3),ISTAT(NSTAT,NMODE)
+      I=ISTAT(ISTATE,MODE)
+      WRITE(50)((H(I,M,K),M=1,MM),K=1,3)
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE IN50(H,MM)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION H(MM,3)
+      READ(50)((H(M,K),M=1,MM),K=1,3)
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE DIAGL(ISIZE,XA)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION XA(1)
+      DO I=1,ISIZE
+        XA(I)=0
+      END DO
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE DIAGZ(ISIZEL,ISIZER,XK,ISIZE,XA,ICI)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION XK(ISIZEL,1),XA(1)
+      IF(ICI.LT.0)THEN
+        DO I=1,ISIZE*(ISIZE+1)/2
+          XA(I)=0
+        END DO
+        RETURN
+      ELSE
+        DO IX=1,ISIZER
+          DO IY=1,ISIZEL
+            XK(IY,IX)=0
+          END DO
+        END DO
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE SCFOV(S,NMODE,OV,ISIZE,ILHS,IRHS)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION S(NMODE),OV(ISIZE,ISIZE)
+      COMMON/FILASS/IOUT,INP
+200   FORMAT(6(1X,D12.4))
+      IF(IRHS.GT.0)THEN
+        OV(ILHS,IRHS)=1
+        DO I=1,NMODE
+          OV(ILHS,IRHS)=OV(ILHS,IRHS)*S(I)
+        END DO
+      ELSE
+        NUM=-IRHS
+        DO J=1,IRHS
+          WRITE(IOUT,200)(OV(I,J),I=1,NUM)
+        END DO
+      END IF
+      RETURN
+      END
+C**************************************************************
+C**************************************************************
+      SUBROUTINE OVERLP(HL,HR,MM,S)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION HL(MM,3),HR(MM,3)
+      S=0
+      DO M=1,MM
+        S=S+HL(M,1)*HR(M,1)
+      END DO
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE CIKE(NMODE,MODE,HL,HR,XQ,S,XK,ISIZE,MM,OMEGA,ILHS,
+     1IRHS)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION XK(ISIZE,1),HL(MM,3),HR(MM,3),XQ(MM),S(NMODE)
+      COMMON/WHICH/IWHICH
+      COMMON/TIMER/ITIM1A,ITIM1B,ITIM2A,ITIM2B,ITIM3A,ITIM3B,
+     1ITIM4A,ITIM4B,ITIM
+      COMMON/PRINT/IPRINT,JPRINT
+      COMMON/FILASS/IOUT,INP
+      IF(ITIM1A.EQ.0)THEN
+        WRITE(IOUT,*)'Calculating CIKE'
+        CALL FLUSH(IOUT)
+        CALL TIMIT(1)
+      END IF
+C**ZERO ORDER KINETIC ENERGY TERM
+      TERM=0
+      DO M=1,MM
+        Q=XQ(M)
+        IF(IWHICH.EQ.0)THEN
+          VHARM=OMEGA*OMEGA*Q*Q/2
+        ELSE
+          VHARM=0
+        END IF
+        X=-HR(M,3)/2+VHARM*HR(M,1)
+        Y=HL(M,1)
+        TERM=TERM+Y*X
+      END DO
+      DO K=1,NMODE
+        IF(K.NE.MODE)THEN
+          TERM=TERM*S(K)
+        END IF
+      END DO
+      XK(ILHS,IRHS)=XK(ILHS,IRHS)+TERM
+      IF(ITIM1A.EQ.0)THEN
+        CALL TIMIT(3)
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE V0CIKE(NMODE,MODE,H,XQ,XA,NN,MM,OMEGA,IP,ISIZE)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION H(NN,MM,3),XQ(MM),IP(ISIZE,NMODE)
+      DIMENSION XA(1)
+      COMMON/WHICH/IWHICH
+      COMMON/TIMER/ITIM1A,ITIM1B,ITIM2A,ITIM2B,ITIM3A,ITIM3B,
+     1ITIM4A,ITIM4B,ITIM
+      COMMON/FILASS/IOUT,INP
+      COMMON/PRINT/IPRINT,JPRINT
+      IF(ITIM1A.EQ.0)THEN
+        WRITE(IOUT,*)'Calculating V0CIKE'
+        CALL FLUSH(IOUT)
+        CALL TIMIT(1)
+      END IF
+C**ZERO ORDER KINETIC ENERGY TERM (INTEGRALS)
+      DO M=1,MM
+        Q=XQ(M)
+        IF(IWHICH.EQ.0)THEN
+          VHARM=OMEGA*OMEGA*Q*Q/2
+        ELSE
+          VHARM=0
+        END IF
+C**ISIZE IS NO. UNIQUE INTEGRALS (1-DIM)
+        DO IRHS=1,ISIZE
+          NR=IP(IRHS,MODE)
+          X=-H(NR,M,3)/2+VHARM*H(NR,M,1)
+          J0=IRHS*(IRHS-1)/2
+          DO ILHS=1,IRHS
+            NL=IP(ILHS,MODE)
+            Y=H(NL,M,1)
+            XA(ILHS+J0)=XA(ILHS+J0)+Y*X
+          END DO
+        END DO
+      END DO
+      IF(ITIM1A.EQ.0)THEN
+        CALL TIMIT(3)
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE VCIKE(NMODE,MODE,H,XQ,XA,XK,NN,MM,OMEGA,IP,ISIZMX,
+     1ISIZE,IP1,ISIZE1,ISTART,IEND)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      LOGICAL LANCZ,LANZA,LANZB
+      DIMENSION H(NN,MM,3),XQ(MM),IP(ISIZMX,NMODE)
+      DIMENSION XA(1),XK(1),IP1(ISIZE1,1)
+      COMMON/LANCZO/LANCZ,LANZA,LANZB
+      COMMON/WHICH/IWHICH
+      COMMON/TIMER/ITIM1A,ITIM1B,ITIM2A,ITIM2B,ITIM3A,ITIM3B,
+     1ITIM4A,ITIM4B,ITIM
+      COMMON/PRINT/IPRINT,JPRINT
+      COMMON/FILASS/IOUT,INP
+C**ZERO ORDER KINETIC ENERGY TERM
+      IF(ITIM1A.EQ.0)THEN
+        WRITE(IOUT,*)'Calculating VCIKE'
+        CALL FLUSH(IOUT)
+        CALL TIMIT(1)
+      END IF
+      L0=-ISTART+1
+      DO IRHS=ISTART,IEND
+        IF(LANCZ)THEN
+          J0=L0
+          IL1=IRHS
+          IL2=ISIZE
+        ELSE
+          J0=IRHS*(IRHS-1)/2
+          IL1=1
+          IL2=IRHS
+        END IF
+        NR=IP(IRHS,MODE)
+C**FIND RHS INDEX (TRIVIAL CASE)
+        DO IR=1,ISIZE1
+          IF(NR.EQ.IP1(IR,1))GO TO 1000
+        END DO
+1000    CONTINUE
+        DO ILHS=IL1,IL2
+C**OVERLAP OF REMAINING STATES
+          IS=1
+          DO K=1,NMODE
+            IF(IS.EQ.0)GO TO 3000
+            IF(K.NE.MODE.AND.(IP(IRHS,K).NE.IP(ILHS,K)))IS=0
+          END DO
+C**OVERLAP OF REMAINING STATES
+          NL=IP(ILHS,MODE)
+C**FIND LHS INDEX (TRIVIAL CASE)
+          DO IL=1,ISIZE1
+            IF(NL.EQ.IP1(IL,1))GO TO 2000
+          END DO
+2000      CONTINUE
+C**GET MATRIX ELEMENT
+          MR=IR
+          ML=IL
+          IF(IR.LT.IL)THEN
+            MR=IL
+            ML=IR
+          END IF
+          I=MR*(MR-1)/2+ML
+          X=XK(I)
+          XA(ILHS+J0)=XA(ILHS+J0)+X*IS
+3000      CONTINUE
+        END DO
+        L0=L0+ISIZE-IRHS
+      END DO
+      IF(ITIM1A.EQ.0)THEN
+        CALL TIMIT(3)
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE CI1(NMODE,MODE,HL,HR,XQ,S,XK,ISIZE,MM,NATOM,QQ,XZ,AB,
+     1B,AA,BB,RR,XX,X0,XL,XM,ILHS,IRHS,NPOT,IPOT,JPOT,CPOT,VP,VPR,VC,
+     2VCR,VR,VRR,J21,KROT)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      REAL*8 VP(MM),VC(MM),VR(J21,MM)
+      REAL*4 VPR(MM),VCR(MM),VRR(J21,MM)
+      DIMENSION HL(MM,3),HR(MM,3),XQ(MM),S(NMODE)
+      DIMENSION QQ(NMODE),XZ(NMODE,NMODE,3),AB(NMODE,3),RR(NATOM,NATOM)
+      DIMENSION B(NMODE,NMODE),AA(NMODE,3,3),BB(NMODE),XK(ISIZE,1)
+      DIMENSION XX(NATOM,3),X0(NATOM,3),XL(NATOM,NMODE,3),XM(NATOM)
+      DIMENSION G1(3,3),XIN(3,3),XMU(3,3),SUP1(3,3),SUP2(3,3),SUP3(10)
+      DIMENSION IPOT(NPOT,6),JPOT(NPOT,6),CPOT(NPOT)
+      COMMON/COUPLE/ICOUPL,JCOUPL
+      COMMON/WHICH/IWHICH
+      COMMON/FACTOR/FACTOR
+      COMMON/TIMER/ITIM1A,ITIM1B,ITIM2A,ITIM2B,ITIM3A,ITIM3B,
+     1ITIM4A,ITIM4B,ITIM
+      COMMON/PRINT/IPRINT,JPRINT
+      COMMON/FILASS/IOUT,INP
+      IF(ITIM1A.EQ.0)THEN
+        WRITE(IOUT,*)'Calculating CI1'
+        CALL FLUSH(IOUT)
+        CALL TIMIT(1)
+      END IF
+      FACT=0
+      IF(ICOUPL.EQ.1)FACT=1/FACTOR
+      IFACT=1
+      IF(IWHICH.NE.0)THEN
+        IF(ICOUPL.EQ.1)IFACT=1
+        IF(ICOUPL.EQ.2)IFACT=-(NMODE-2)
+        IF(ICOUPL.EQ.3)THEN
+          IFACT=(NMODE-3)*(NMODE-1)
+          DO I=2,NMODE-2
+            IFACT=IFACT-I
+          END DO
+        END IF
+        IF(ICOUPL.EQ.4)THEN
+          IFACT=-(NMODE-4)*(NMODE-3)*(NMODE-1)
+          DO I=1,NMODE-4
+            IFACT=IFACT-I*(NMODE-3-I)
+          END DO
+          DO I=1,NMODE-4
+            IFACT=IFACT+(NMODE-2)*I
+          END DO
+          DO I=2,NMODE-2
+            IFACT=IFACT+(NMODE-4)*I
+          END DO
+        END IF
+      END IF
+      TERM=0
+      FACTRC=FACT
+      IF(JCOUPL.GT.0)THEN
+        IF(J21.GT.1.AND.ICOUPL.EQ.1)READ(61)VR
+        READ(71)VP
+        READ(81)VC
+      ELSE
+        IF(J21.GT.1.AND.ICOUPL.EQ.1)READ(61)VRR
+        READ(71)VPR
+        READ(81)VCR
+      END IF
+      DO M=1,MM
+        IF(JCOUPL.GT.0)THEN
+          VV=VP(M)*IFACT
+          VV=VV+VC(M)*FACT
+          IF(J21.GT.1.AND.ICOUPL.EQ.1)VV=VV+VR(KROT,M)*FACTRC
+        ELSE
+          VV=VPR(M)*IFACT
+          VV=VV+VCR(M)*FACT
+          IF(J21.GT.1.AND.ICOUPL.EQ.1)VV=VV+VRR(KROT,M)*FACTRC
+        END IF
+C**THINK ABOUT DO IRHS=1,ICI (WHAT ABOUT READ(50) THOUGH ?)
+        X=VV*HR(M,1)
+C**THINK ABOUT DO ILHS=1,IRHS
+        Y=HL(M,1)
+        TERM=TERM+Y*X
+      END DO
+      DO K=1,NMODE
+        IF(K.NE.MODE)THEN
+          TERM=TERM*S(K)
+        END IF
+      END DO
+      XK(ILHS,IRHS)=XK(ILHS,IRHS)+TERM
+      IF(ITIM1A.EQ.0)THEN
+        CALL TIMIT(3)
+        ITIM1A=1
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE V0CI1(NMODE,MODE,H,XQ,XA,NN,MM,IP,ISIZE,VP,VPR,VC,VCR,
+     2VR,VRR,J21,KROT)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      REAL*8 VP(MM),VC(MM),VR(J21,MM)
+      REAL*4 VPR(MM),VCR(MM),VRR(J21,MM)
+      DIMENSION H(NN,MM,3),IP(ISIZE,NMODE)
+      DIMENSION XA(1),XQ(MM)
+      COMMON/COUPLE/ICOUPL,JCOUPL
+      COMMON/WHICH/IWHICH
+      COMMON/FACTOR/FACTOR
+      COMMON/TIMER/ITIM1A,ITIM1B,ITIM2A,ITIM2B,ITIM3A,ITIM3B,
+     1ITIM4A,ITIM4B,ITIM
+      COMMON/PRINT/IPRINT,JPRINT
+      COMMON/FILASS/IOUT,INP
+      IF(ITIM1A.EQ.0)THEN
+        WRITE(IOUT,*)'Calculating V0CI1'
+        CALL FLUSH(IOUT)
+        CALL TIMIT(1)
+      END IF
+      FACT=0
+      IF(ICOUPL.EQ.1)FACT=1/FACTOR
+      IFACT=1
+      IF(IWHICH.NE.0)THEN
+        IF(ICOUPL.EQ.1)IFACT=1
+        IF(ICOUPL.EQ.2)IFACT=-(NMODE-2)
+        IF(ICOUPL.EQ.3)THEN
+          IFACT=(NMODE-3)*(NMODE-1)
+          DO I=2,NMODE-2
+            IFACT=IFACT-I
+          END DO
+        END IF
+        IF(ICOUPL.EQ.4)THEN
+          IFACT=-(NMODE-4)*(NMODE-3)*(NMODE-1)
+          DO I=1,NMODE-4
+            IFACT=IFACT-I*(NMODE-3-I)
+          END DO
+          DO I=1,NMODE-4
+            IFACT=IFACT+(NMODE-2)*I
+          END DO
+          DO I=2,NMODE-2
+            IFACT=IFACT+(NMODE-4)*I
+          END DO
+        END IF
+      END IF
+      TERM=0
+      FACTRC=FACT
+      IF(JCOUPL.GT.0)THEN
+        IF(J21.GT.1.AND.ICOUPL.EQ.1)READ(61)VR
+        READ(71)VP
+        READ(81)VC
+      ELSE
+        IF(J21.GT.1.AND.ICOUPL.EQ.1)READ(61)VRR
+        READ(71)VPR
+        READ(81)VCR
+      END IF
+      DO M=1,MM
+        IF(JCOUPL.GT.0)THEN
+          VV=VP(M)*IFACT
+          VV=VV+VC(M)*FACT
+          IF(J21.GT.1.AND.ICOUPL.EQ.1)TERM=VR(KROT,M)*FACTRC
+        ELSE
+          VV=VPR(M)*IFACT
+          VV=VV+VCR(M)*FACT
+          IF(J21.GT.1.AND.ICOUPL.EQ.1)TERM=VRR(KROT,M)*FACTRC
+        END IF
+C**ISIZE IS NO. UNIQUE INTEGRALS (1-DIM)
+        DO IRHS=1,ISIZE
+          NR=IP(IRHS,MODE)
+          X=(VV+TERM)*H(NR,M,1)
+          J0=IRHS*(IRHS-1)/2
+          DO ILHS=1,IRHS
+            NL=IP(ILHS,MODE)
+            Y=H(NL,M,1)
+            XA(ILHS+J0)=XA(ILHS+J0)+Y*X
+          END DO
+        END DO
+      END DO
+      IF(ITIM1A.EQ.0)THEN
+        CALL TIMIT(3)
+        ITIM1A=1
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE VCI1(NMODE,MODE,H,XQ,XA,XK,NN,MM,
+     1IP,ISIZMX,ISIZE,IP1,ISIZE1,ISTART,IEND)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      LOGICAL LANCZ,LANZA,LANZB
+      DIMENSION H(NN,MM,3),XQ(MM),IP(ISIZMX,NMODE)
+      DIMENSION XA(1),XK(1),IP1(ISIZE1,1)
+      COMMON/COUPLE/ICOUPL,JCOUPL
+      COMMON/LANCZO/LANCZ,LANZA,LANZB
+      COMMON/WHICH/IWHICH
+      COMMON/FACTOR/FACTOR
+      COMMON/TIMER/ITIM1A,ITIM1B,ITIM2A,ITIM2B,ITIM3A,ITIM3B,
+     1ITIM4A,ITIM4B,ITIM
+      COMMON/PRINT/IPRINT,JPRINT
+      COMMON/FILASS/IOUT,INP
+      IF(ITIM1A.EQ.0)THEN
+        WRITE(IOUT,*)'Calculating VCI1'
+        CALL FLUSH(IOUT)
+        CALL TIMIT(1)
+      END IF
+      L0=-ISTART+1
+      DO IRHS=ISTART,IEND
+        IF(LANCZ)THEN
+          J0=L0
+          IL1=IRHS
+          IL2=ISIZE
+        ELSE
+          J0=IRHS*(IRHS-1)/2
+          IL1=1
+          IL2=IRHS
+        END IF
+        NR=IP(IRHS,MODE)
+C**FIND RHS INDEX (TRIVIAL CASE)
+        DO IR=1,ISIZE1
+          IF(NR.EQ.IP1(IR,1))GO TO 1000
+        END DO
+1000    CONTINUE
+        DO ILHS=IL1,IL2
+C**OVERLAP OF REMAINING STATES
+          IS=1
+          DO K=1,NMODE
+            IF(IS.EQ.0)GO TO 3000
+            IF(K.NE.MODE.AND.(IP(IRHS,K).NE.IP(ILHS,K)))IS=0
+          END DO
+C**OVERLAP OF REMAINING STATES
+          NL=IP(ILHS,MODE)
+C**FIND LHS INDEX (TRIVIAL CASE)
+          DO IL=1,ISIZE1
+            IF(NL.EQ.IP1(IL,1))GO TO 2000
+          END DO
+2000      CONTINUE
+C**GET MATRIX ELEMENT
+          MR=IR
+          ML=IL
+          IF(IR.LT.IL)THEN
+            MR=IL
+            ML=IR
+          END IF
+          I=MR*(MR-1)/2+ML
+          X=XK(I)
+          XA(ILHS+J0)=XA(ILHS+J0)+X*IS
+3000      CONTINUE
+        END DO
+        L0=L0+ISIZE-IRHS
+      END DO
+      IF(ITIM1A.EQ.0)THEN
+        CALL TIMIT(3)
+        ITIM1A=1
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE CI2(NMODE,MODE1,MODE2,HL1,HR1,XQ1,HL2,HR2,XQ2,MM1,MM2,
+     1S,XK,ISIZE,NATOM,QQ,XZ,AB,B,AA,BB,RR,XX,X0,XL,XM,ILHS,IRHS,NPOT,
+     2IPOT,JPOT,CPOT,VP,VPR,VC,VCR,VR,VRR,J21,KROT)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      REAL*8 VP(MM2,MM1),VC(MM2,MM1,6),VR(J21,MM2,MM1)
+      REAL*4 VPR(MM2,MM1),VCR(MM2,MM1,6),VRR(J21,MM2,MM1)
+      DIMENSION HL1(MM1,3),HR1(MM1,3),HL2(MM2,3),HR2(MM2,3)
+      DIMENSION XQ1(MM1),XQ2(MM2),S(NMODE)
+      DIMENSION QQ(NMODE),XZ(NMODE,NMODE,3),AB(NMODE,3),RR(NATOM,NATOM)
+      DIMENSION B(NMODE,NMODE),AA(NMODE,3,3),BB(NMODE),XK(ISIZE,1)
+      DIMENSION XX(NATOM,3),X0(NATOM,3),XL(NATOM,NMODE,3),XM(NATOM)
+      DIMENSION G1(3,3),XIN(3,3),XMU(3,3),SUP1(3,3),SUP2(3,3),SUP3(10)
+      DIMENSION IPOT(NPOT,6),JPOT(NPOT,6),CPOT(NPOT)
+      COMMON/COUPLE/ICOUPL,JCOUPL
+      COMMON/WHICH/IWHICH
+      COMMON/FACTOR/FACTOR
+      COMMON/TIMER/ITIM1A,ITIM1B,ITIM2A,ITIM2B,ITIM3A,ITIM3B,
+     1ITIM4A,ITIM4B,ITIM
+      COMMON/PRINT/IPRINT,JPRINT
+      COMMON/FILASS/IOUT,INP
+      IF(ITIM2A.EQ.0)THEN
+        WRITE(IOUT,*)'Calculating CI2'
+        CALL FLUSH(IOUT)
+        CALL TIMIT(1)
+      END IF
+      FACT=0
+      IF(ICOUPL.EQ.2)FACT=1/FACTOR
+      IFACT=1
+      IF(IWHICH.NE.0)THEN
+        IF(ICOUPL.EQ.2)IFACT=1
+        IF(ICOUPL.EQ.3)IFACT=-(NMODE-3)
+        IF(ICOUPL.EQ.4)THEN
+          IFACT=(NMODE-4)*(NMODE-3)
+          DO I=1,NMODE-4
+            IFACT=IFACT-I
+          END DO
+        END IF
+      END IF
+      TERM=0
+      FACTRC=FACT
+      IF(JCOUPL.GT.0)THEN
+        IF(J21.GT.1.AND.ICOUPL.EQ.2)READ(62)VR
+        READ(72)VP
+        READ(82)VC
+      ELSE
+        IF(J21.GT.1.AND.ICOUPL.EQ.2)READ(62)VRR
+        READ(72)VPR
+        READ(82)VCR
+      END IF
+      DO M1=1,MM1
+        X1=0
+        X2=0
+        X3=0
+        Z1=HR1(M1,1)
+        Z2=HR1(M1,2)
+        Z3=HR1(M1,3)
+C**INTEGRATE OVER SINGLE STATE (START)
+        IF(JCOUPL.GT.0)THEN
+          DO M2=1,MM2
+            Y0=HL2(M2,1)
+            Y1=Y0*HR2(M2,1)*IFACT
+            YY1=Y0*HR2(M2,1)
+            Y2=Y0*HR2(M2,2)*IFACT
+            Y3=Y0*HR2(M2,3)*IFACT
+            X1=X1+VP(M2,M1)*Y1
+            X1=X1-VC(M2,M1,2)*Y2-VC(M2,M1,5)*Y3
+            X1=X1+VC(M2,M1,6)*YY1*FACT
+            IF(J21.GT.1.AND.ICOUPL.EQ.2)
+     1      X1=X1+VR(KROT,M2,M1)*YY1*FACTRC
+            X2=X2-VC(M2,M1,1)*Y1-2*VC(M2,M1,4)*Y2
+            X3=X3-VC(M2,M1,3)*Y1
+          END DO
+        ELSE
+          DO M2=1,MM2
+            Y0=HL2(M2,1)
+            Y1=Y0*HR2(M2,1)*IFACT
+            YY1=Y0*HR2(M2,1)
+            Y2=Y0*HR2(M2,2)*IFACT
+            Y3=Y0*HR2(M2,3)*IFACT
+            X1=X1+VPR(M2,M1)*Y1
+            X1=X1-VCR(M2,M1,2)*Y2-VCR(M2,M1,5)*Y3
+            X1=X1+VCR(M2,M1,6)*YY1*FACT
+            IF(J21.GT.1.AND.ICOUPL.EQ.2)
+     1      X1=X1+VRR(KROT,M2,M1)*YY1*FACTRC
+            X2=X2-VCR(M2,M1,1)*Y1-2*VCR(M2,M1,4)*Y2
+            X3=X3-VCR(M2,M1,3)*Y1
+          END DO
+        END IF
+C**INTEGRATE OVER SINGLE STATE (END)
+        Y=HL1(M1,1)
+        TERM=TERM+Y*(X1*Z1+X2*Z2+X3*Z3)
+      END DO
+      DO K=1,NMODE
+        IF(K.NE.MODE1.AND.K.NE.MODE2)THEN
+          TERM=TERM*S(K)
+        END IF
+      END DO
+      XK(ILHS,IRHS)=XK(ILHS,IRHS)+TERM
+      IF(ITIM2A.EQ.0)THEN
+        CALL TIMIT(3)
+        ITIM2A=1
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE V0CI2(NMODE,MODE1,MODE2,H1,XQ1,H2,XQ2,NN1,MM1,NN2,MM2,
+     1XA,IP,ISIZE,TEMP,JCI,VP,VPR,VC,VCR,VR,VRR,J21,KROT,IP1,ISIZE1)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      REAL*8 VP(MM2,MM1),VC(MM2,MM1,6),VR(J21,MM2,MM1)
+      REAL*4 VPR(MM2,MM1),VCR(MM2,MM1,6),VRR(J21,MM2,MM1)
+      DIMENSION H1(NN1,MM1,3),H2(NN2,MM2,3),IP(ISIZE,NMODE)
+      DIMENSION IP1(ISIZE1,1)
+      DIMENSION XA(1)
+      DIMENSION XQ1(MM1),XQ2(MM2)
+      DIMENSION TEMP(JCI,JCI,3)
+      COMMON/COUPLE/ICOUPL,JCOUPL
+      COMMON/WHICH/IWHICH
+      COMMON/FACTOR/FACTOR
+      COMMON/TIMER/ITIM1A,ITIM1B,ITIM2A,ITIM2B,ITIM3A,ITIM3B,
+     1ITIM4A,ITIM4B,ITIM
+      COMMON/PRINT/IPRINT,JPRINT
+      COMMON/FILASS/IOUT,INP
+      IF(ITIM2A.EQ.0)THEN
+        WRITE(IOUT,*)'Calculating V0CI2'
+        CALL FLUSH(IOUT)
+        CALL TIMIT(1)
+      END IF
+      FACT=0
+      IF(ICOUPL.EQ.2)FACT=1/FACTOR
+      IFACT=1
+      IF(IWHICH.NE.0)THEN
+        IF(ICOUPL.EQ.2)IFACT=1
+        IF(ICOUPL.EQ.3)IFACT=-(NMODE-3)
+        IF(ICOUPL.EQ.4)THEN
+          IFACT=(NMODE-4)*(NMODE-3)
+          DO I=1,NMODE-4
+            IFACT=IFACT-I
+          END DO
+        END IF
+      END IF
+      FACTRC=FACT
+      IF(JCOUPL.GT.0)THEN
+        IF(J21.GT.1.AND.ICOUPL.EQ.2)READ(62)VR
+        READ(72)VP
+        READ(82)VC
+      ELSE
+        IF(J21.GT.1.AND.ICOUPL.EQ.2)READ(62)VRR
+        READ(72)VPR
+        READ(82)VCR
+      END IF
+      DO M1=1,MM1
+        DO K=1,3
+          DO ILHS2=1,JCI
+            DO IRHS2=1,JCI
+              TEMP(ILHS2,IRHS2,K)=0
+            END DO
+          END DO
+        END DO
+        IF(JCOUPL.GT.0)THEN
+          DO M2=1,MM2
+            DO IX1=1,ISIZE1
+              IRHS2=IP1(IX1,1)
+              Y1=H2(IRHS2,M2,1)*IFACT
+              YY1=H2(IRHS2,M2,1)
+              Y2=H2(IRHS2,M2,2)*IFACT
+              Y3=H2(IRHS2,M2,3)*IFACT
+              X1=VP(M2,M1)*Y1-VC(M2,M1,2)*Y2-VC(M2,M1,5)*Y3
+              X1=X1+VC(M2,M1,6)*YY1*FACT
+              IF(J21.GT.1.AND.ICOUPL.EQ.2)
+     1        X1=X1+VR(KROT,M2,M1)*YY1*FACTRC
+              X2=-VC(M2,M1,1)*Y1-2*VC(M2,M1,4)*Y2
+              X3=-VC(M2,M1,3)*Y1
+              DO IY1=1,ISIZE1
+                ILHS2=IP1(IY1,1)
+                Y0=H2(ILHS2,M2,1)
+                TEMP(ILHS2,IRHS2,1)=TEMP(ILHS2,IRHS2,1)+Y0*X1
+                TEMP(ILHS2,IRHS2,2)=TEMP(ILHS2,IRHS2,2)+Y0*X2
+                TEMP(ILHS2,IRHS2,3)=TEMP(ILHS2,IRHS2,3)+Y0*X3
+              END DO
+            END DO
+          END DO
+        ELSE
+          DO M2=1,MM2
+            DO IX1=1,ISIZE1
+              IRHS2=IP1(IX1,1)
+              Y1=H2(IRHS2,M2,1)*IFACT
+              YY1=H2(IRHS2,M2,1)
+              Y2=H2(IRHS2,M2,2)*IFACT
+              Y3=H2(IRHS2,M2,3)*IFACT
+              X1=VPR(M2,M1)*Y1-VCR(M2,M1,2)*Y2-VCR(M2,M1,5)*Y3
+              X1=X1+VCR(M2,M1,6)*YY1*FACT
+              IF(J21.GT.1.AND.ICOUPL.EQ.2)
+     1        X1=X1+VRR(KROT,M2,M1)*YY1*FACTRC
+              X2=-VCR(M2,M1,1)*Y1-2*VCR(M2,M1,4)*Y2
+              X3=-VCR(M2,M1,3)*Y1
+              DO IY1=1,ISIZE1
+                ILHS2=IP1(IY1,1)
+                Y0=H2(ILHS2,M2,1)
+                TEMP(ILHS2,IRHS2,1)=TEMP(ILHS2,IRHS2,1)+Y0*X1
+                TEMP(ILHS2,IRHS2,2)=TEMP(ILHS2,IRHS2,2)+Y0*X2
+                TEMP(ILHS2,IRHS2,3)=TEMP(ILHS2,IRHS2,3)+Y0*X3
+              END DO
+            END DO
+          END DO
+        END IF
+C**ISIZE IS NO. UNIQUE INTEGRALS (2-DIM)
+        DO IRHS=1,ISIZE
+          NR1=IP(IRHS,MODE1)
+          NR2=IP(IRHS,MODE2)
+          X1=H1(NR1,M1,1)
+          X2=H1(NR1,M1,2)
+          X3=H1(NR1,M1,3)
+          J0=IRHS*(IRHS-1)/2
+          DO ILHS=1,IRHS
+            NL1=IP(ILHS,MODE1)
+            NL2=IP(ILHS,MODE2)
+            Y=H1(NL1,M1,1)
+            XA(ILHS+J0)=XA(ILHS+J0)+Y*(TEMP(NL2,NR2,1)*X1+
+     1      TEMP(NL2,NR2,2)*X2+TEMP(NL2,NR2,3)*X3)
+          END DO
+        END DO
+      END DO
+      IF(ITIM2A.EQ.0)THEN
+        CALL TIMIT(3)
+        ITIM2A=1
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE VCI2(NMODE,MODE1,MODE2,H1,XQ1,H2,XQ2,NN1,MM1,NN2,MM2,
+     1XA,XK,IP,ISIZMX,ISIZE,IP2,ISIZE2,JCI,ISTART,IEND)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      LOGICAL LANCZ,LANZA,LANZB
+      DIMENSION H1(NN1,MM1,3),H2(NN2,MM2,3),IP(ISIZMX,NMODE)
+      DIMENSION XA(1),XK(1),IP2(ISIZE2,2)
+      DIMENSION XQ1(MM1),XQ2(MM2)
+      COMMON/COUPLE/ICOUPL,JCOUPL
+      COMMON/LANCZO/LANCZ,LANZA,LANZB
+      COMMON/WHICH/IWHICH
+      COMMON/FACTOR/FACTOR
+      COMMON/TIMER/ITIM1A,ITIM1B,ITIM2A,ITIM2B,ITIM3A,ITIM3B,
+     1ITIM4A,ITIM4B,ITIM
+      COMMON/PRINT/IPRINT,JPRINT
+      COMMON/FILASS/IOUT,INP
+      IF(ITIM2A.EQ.0)THEN
+        WRITE(IOUT,*)'Calculating VCI2'
+        CALL FLUSH(IOUT)
+        CALL TIMIT(1)
+      END IF
+      L0=-ISTART+1
+      DO IRHS=ISTART,IEND
+        IF(LANCZ)THEN
+          J0=L0
+          IL1=IRHS
+          IL2=ISIZE
+        ELSE
+          J0=IRHS*(IRHS-1)/2
+          IL1=1
+          IL2=IRHS
+        END IF
+        NR1=IP(IRHS,MODE1)
+        NR2=IP(IRHS,MODE2)
+C**FIND RHS INDEX
+        DO IR=1,ISIZE2
+          IF(NR1.EQ.IP2(IR,1).AND.NR2.EQ.IP2(IR,2))GO TO 1000
+        END DO
+1000    CONTINUE
+        DO ILHS=IL1,IL2
+C**OVERLAP OF REMAINING STATES
+          IS=1
+          DO K=1,NMODE
+            IF(IS.EQ.0)GO TO 3000
+            IF(K.NE.MODE1.AND.K.NE.MODE2.AND.(IP(IRHS,K).NE.
+     1      IP(ILHS,K)))IS=0
+          END DO
+C**OVERLAP OF REMAINING STATES
+          NL1=IP(ILHS,MODE1)
+          NL2=IP(ILHS,MODE2)
+C**FIND LHS INDEX
+          DO IL=1,ISIZE2
+            IF(NL1.EQ.IP2(IL,1).AND.NL2.EQ.IP2(IL,2))GO TO 2000
+          END DO
+2000      CONTINUE
+C**GET MATRIX ELEMENT
+          MR=IR
+          ML=IL
+          IF(IR.LT.IL)THEN
+            MR=IL
+            ML=IR
+          END IF
+          I=MR*(MR-1)/2+ML
+          X=XK(I)
+          XA(ILHS+J0)=XA(ILHS+J0)+X*IS
+3000      CONTINUE
+        END DO
+        L0=L0+ISIZE-IRHS
+      END DO
+      IF(ITIM2A.EQ.0)THEN
+        CALL TIMIT(3)
+        ITIM2A=1
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE CI3(NMODE,MODE1,MODE2,MODE3,HL1,HR1,XQ1,HL2,HR2,XQ2,
+     1HL3,HR3,XQ3,MM1,MM2,MM3,S,XK,ISIZE,NATOM,QQ,XZ,AB,B,AA,BB,RR,XX,
+     2X0,XL,XM,ILHS,IRHS,NPOT,IPOT,JPOT,CPOT,VP,VPR,VC,VCR,VR,VRR,J21,
+     3KROT)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      REAL*8 VP(MM3,MM2,MM1),VC(MM3,MM2,MM1,10),VR(J21,MM3,MM2,MM1)
+      REAL*4 VPR(MM3,MM2,MM1),VCR(MM3,MM2,MM1,10),VRR(J21,MM3,MM2,MM1)
+      DIMENSION HL1(MM1,3),HR1(MM1,3),HL2(MM2,3),HR2(MM2,3)
+      DIMENSION HL3(MM3,3),HR3(MM3,3),XK(ISIZE,1)
+      DIMENSION XQ1(MM1),XQ2(MM2),XQ3(MM3),S(NMODE)
+      DIMENSION QQ(NMODE),XZ(NMODE,NMODE,3),AB(NMODE,3),RR(NATOM,NATOM)
+      DIMENSION B(NMODE,NMODE),AA(NMODE,3,3),BB(NMODE)
+      DIMENSION XX(NATOM,3),X0(NATOM,3),XL(NATOM,NMODE,3),XM(NATOM)
+      DIMENSION G1(3,3),XIN(3,3),XMU(3,3),SUP1(3,3),SUP2(3,3),SUP3(10)
+      DIMENSION IPOT(NPOT,6),JPOT(NPOT,6),CPOT(NPOT)
+      COMMON/COUPLE/ICOUPL,JCOUPL
+      COMMON/WHICH/IWHICH
+      COMMON/FACTOR/FACTOR
+      COMMON/TIMER/ITIM1A,ITIM1B,ITIM2A,ITIM2B,ITIM3A,ITIM3B,
+     1ITIM4A,ITIM4B,ITIM
+      COMMON/PRINT/IPRINT,JPRINT
+      COMMON/FILASS/IOUT,INP
+      IF(ITIM3A.EQ.0)THEN
+        WRITE(IOUT,*)'Calculating CI3'
+        CALL FLUSH(IOUT)
+        CALL TIMIT(1)
+      END IF
+      FACT=0
+      IF(ICOUPL.EQ.3)FACT=1/FACTOR
+      IFACT=1
+      IF(IWHICH.NE.0)THEN
+        IF(ICOUPL.EQ.3)IFACT=1
+        IF(ICOUPL.EQ.4)IFACT=-(NMODE-4)
+      END IF
+      TERM=0
+      FACTRC=FACT
+      IF(JCOUPL.GT.0)THEN
+        IF(J21.GT.1.AND.ICOUPL.EQ.3)READ(63)VR
+        READ(73)VP
+        READ(83)VC
+      ELSE
+        IF(J21.GT.1.AND.ICOUPL.EQ.3)READ(63)VRR
+        READ(73)VPR
+        READ(83)VCR
+      END IF
+      DO M1=1,MM1
+        X1=0
+        X2=0
+        X3=0
+        W1=HR1(M1,1)
+        W2=HR1(M1,2)
+        W3=HR1(M1,3)
+C**INTEGRATE OVER SINGLE STATES (START)
+        DO M2=1,MM2
+          Y0=HL2(M2,1)
+          Y1=Y0*HR2(M2,1)*IFACT
+          YY1=Y0*HR2(M2,1)
+          Y2=Y0*HR2(M2,2)*IFACT
+          Y3=Y0*HR2(M2,3)*IFACT
+          IF(JCOUPL.GT.0)THEN
+            DO M3=1,MM3
+              Z0=HL3(M3,1)
+              Z1=Z0*HR3(M3,1)
+              Z2=Z0*HR3(M3,2)
+              Z3=Z0*HR3(M3,3)
+              X1=X1+VP(M3,M2,M1)*Y1*Z1
+              X1=X1-VC(M3,M2,M1,2)*Y2*Z1-
+     1        VC(M3,M2,M1,3)*Y1*Z2-VC(M3,M2,M1,7)*Y3*Z1-
+     2        2*VC(M3,M2,M1,8)*Y2*Z2-
+     3        VC(M3,M2,M1,9)*Y1*Z3
+              X1=X1+VC(M3,M2,M1,10)*YY1*Z1*FACT
+              IF(J21.GT.1.AND.ICOUPL.EQ.3)
+     1        X1=X1+VR(KROT,M3,M2,M1)*YY1*Z1*FACTRC
+              X2=X2-VC(M3,M2,M1,1)*Y1*Z1-2*VC(M3,M2,M1,5)*Y2*Z1-
+     1        2*VC(M3,M2,M1,6)*Y1*Z2
+              X3=X3-VC(M3,M2,M1,4)*Y1*Z1
+            END DO
+          ELSE
+            DO M3=1,MM3
+              Z0=HL3(M3,1)
+              Z1=Z0*HR3(M3,1)
+              Z2=Z0*HR3(M3,2)
+              Z3=Z0*HR3(M3,3)
+              X1=X1+VPR(M3,M2,M1)*Y1*Z1
+              X1=X1-VCR(M3,M2,M1,2)*Y2*Z1-
+     1        VCR(M3,M2,M1,3)*Y1*Z2-VCR(M3,M2,M1,7)*Y3*Z1-
+     2        2*VCR(M3,M2,M1,8)*Y2*Z2-
+     3        VCR(M3,M2,M1,9)*Y1*Z3
+              X1=X1+VCR(M3,M2,M1,10)*YY1*Z1*FACT
+              IF(J21.GT.1.AND.ICOUPL.EQ.3)
+     1        X1=X1+VRR(KROT,M3,M2,M1)*YY1*Z1*FACTRC
+              X2=X2-VCR(M3,M2,M1,1)*Y1*Z1-2*VCR(M3,M2,M1,5)*Y2*Z1-
+     1        2*VCR(M3,M2,M1,6)*Y1*Z2
+              X3=X3-VCR(M3,M2,M1,4)*Y1*Z1
+            END DO
+          END IF
+        END DO
+C**INTEGRATE OVER SINGLE STATES (END)
+        Y=HL1(M1,1)
+        TERM=TERM+Y*(X1*W1+X2*W2+X3*W3)
+      END DO
+      DO K=1,NMODE
+        IF(K.NE.MODE1.AND.K.NE.MODE2.AND.K.NE.MODE3)THEN
+          TERM=TERM*S(K)
+        END IF
+      END DO
+      XK(ILHS,IRHS)=XK(ILHS,IRHS)+TERM
+      IF(ITIM3A.EQ.0)THEN
+        CALL TIMIT(3)
+        ITIM3A=1
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE V0CI3(NMODE,MODE1,MODE2,MODE3,H1,XQ1,H2,XQ2,
+     1H3,XQ3,NN1,MM1,NN2,MM2,NN3,MM3,XA,IP,ISIZE,TEMP,
+     2JCI,VP,VPR,VC,VCR,VR,VRR,J21,KROT,IP2,ISIZE2)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      REAL*8 VP(MM3,MM2,MM1),VC(MM3,MM2,MM1,10),VR(J21,MM3,MM2,MM1)
+      REAL*4 VPR(MM3,MM2,MM1),VCR(MM3,MM2,MM1,10),VRR(J21,MM3,MM2,MM1)
+      DIMENSION H1(NN1,MM1,3),H2(NN2,MM2,3),H3(NN3,MM3,3)
+      DIMENSION IP(ISIZE,NMODE),IP2(ISIZE2,2)
+      DIMENSION TEMP(JCI,JCI,JCI,JCI,3)
+      DIMENSION XA(1)
+      DIMENSION XQ1(MM1),XQ2(MM2),XQ3(MM3)
+      COMMON/COUPLE/ICOUPL,JCOUPL
+      COMMON/WHICH/IWHICH
+      COMMON/FACTOR/FACTOR
+      COMMON/TIMER/ITIM1A,ITIM1B,ITIM2A,ITIM2B,ITIM3A,ITIM3B,
+     1ITIM4A,ITIM4B,ITIM
+      COMMON/PRINT/IPRINT,JPRINT
+      COMMON/FILASS/IOUT,INP
+      IF(ITIM3A.EQ.0)THEN
+        WRITE(IOUT,*)'Calculating V0CI3'
+        CALL FLUSH(IOUT)
+        CALL TIMIT(1)
+      END IF
+      FACT=0
+      IF(ICOUPL.EQ.3)FACT=1/FACTOR
+      IFACT=1
+      IF(IWHICH.NE.0)THEN
+        IF(ICOUPL.EQ.3)IFACT=1
+        IF(ICOUPL.EQ.4)IFACT=-(NMODE-4)
+      END IF
+      FACTRC=FACT
+      IF(JCOUPL.GT.0)THEN
+        IF(J21.GT.1.AND.ICOUPL.EQ.3)READ(63)VR
+        READ(73)VP
+        READ(83)VC
+      ELSE
+        IF(J21.GT.1.AND.ICOUPL.EQ.3)READ(63)VRR
+        READ(73)VPR
+        READ(83)VCR
+      END IF
+      DO M1=1,MM1
+        DO K=1,3
+          DO ILHS2=1,JCI
+            DO ILHS3=1,JCI
+              DO IRHS2=1,JCI
+                DO IRHS3=1,JCI
+                  TEMP(ILHS2,ILHS3,IRHS2,IRHS3,K)=0
+                END DO
+              END DO
+            END DO
+          END DO
+        END DO
+        IF(JCOUPL.GT.0)THEN
+          DO IX2=1,ISIZE2
+            IRHS2=IP2(IX2,1)
+            IRHS3=IP2(IX2,2)
+            DO M2=1,MM2
+              Y1=H2(IRHS2,M2,1)*IFACT
+              YY1=H2(IRHS2,M2,1)
+              Y2=H2(IRHS2,M2,2)*IFACT
+              Y3=H2(IRHS2,M2,3)*IFACT
+              DO M3=1,MM3
+                Z1=H3(IRHS3,M3,1)
+                Z2=H3(IRHS3,M3,2)
+                Z3=H3(IRHS3,M3,3)
+                X1=Z1*(VP(M3,M2,M1)*Y1-VC(M3,M2,M1,2)*Y2-
+     1          VC(M3,M2,M1,7)*Y3)-
+     1          Y1*(VC(M3,M2,M1,3)*Z2+VC(M3,M2,M1,9)*Z3)
+     2          -2*VC(M3,M2,M1,8)*Y2*Z2
+                X1=X1+VC(M3,M2,M1,10)*YY1*Z1*FACT
+                IF(J21.GT.1.AND.ICOUPL.EQ.3)
+     1          X1=X1+VR(KROT,M3,M2,M1)*YY1*Z1*FACTRC
+                X2=-Z1*(VC(M3,M2,M1,1)*Y1+2*VC(M3,M2,M1,5)*Y2)-
+     1          2*VC(M3,M2,M1,6)*Y1*Z2
+                X3=-VC(M3,M2,M1,4)*Y1*Z1
+                DO IY2=1,ISIZE2
+                  ILHS2=IP2(IY2,1)
+                  ILHS3=IP2(IY2,2)
+                  Y0=H2(ILHS2,M2,1)
+                  Z0=H3(ILHS3,M3,1)
+                  TEMP(ILHS2,ILHS3,IRHS2,IRHS3,1)=
+     1            TEMP(ILHS2,ILHS3,IRHS2,IRHS3,1)+Y0*Z0*X1
+                  TEMP(ILHS2,ILHS3,IRHS2,IRHS3,2)=
+     1            TEMP(ILHS2,ILHS3,IRHS2,IRHS3,2)+Y0*Z0*X2
+                  TEMP(ILHS2,ILHS3,IRHS2,IRHS3,3)=
+     1            TEMP(ILHS2,ILHS3,IRHS2,IRHS3,3)+Y0*Z0*X3
+                END DO
+              END DO
+            END DO
+          END DO
+        ELSE
+          DO IX2=1,ISIZE2
+            IRHS2=IP2(IX2,1)
+            IRHS3=IP2(IX2,2)
+            DO M2=1,MM2
+              Y1=H2(IRHS2,M2,1)*IFACT
+              YY1=H2(IRHS2,M2,1)
+              Y2=H2(IRHS2,M2,2)*IFACT
+              Y3=H2(IRHS2,M2,3)*IFACT
+              DO M3=1,MM3
+                Z1=H3(IRHS3,M3,1)
+                Z2=H3(IRHS3,M3,2)
+                Z3=H3(IRHS3,M3,3)
+                X1=Z1*(VPR(M3,M2,M1)*Y1-VCR(M3,M2,M1,2)*Y2-
+     1          VCR(M3,M2,M1,7)*Y3)-
+     1          Y1*(VCR(M3,M2,M1,3)*Z2+VCR(M3,M2,M1,9)*Z3)
+     2          -2*VCR(M3,M2,M1,8)*Y2*Z2
+                X1=X1+VCR(M3,M2,M1,10)*YY1*Z1*FACT
+                IF(J21.GT.1.AND.ICOUPL.EQ.3)
+     1          X1=X1+VRR(KROT,M3,M2,M1)*YY1*Z1*FACTRC
+                X2=-Z1*(VCR(M3,M2,M1,1)*Y1+2*VCR(M3,M2,M1,5)*Y2)-
+     1          2*VCR(M3,M2,M1,6)*Y1*Z2
+                X3=-VCR(M3,M2,M1,4)*Y1*Z1
+                DO IY2=1,ISIZE2
+                  ILHS2=IP2(IY2,1)
+                  ILHS3=IP2(IY2,2)
+                  Y0=H2(ILHS2,M2,1)
+                  Z0=H3(ILHS3,M3,1)
+                  TEMP(ILHS2,ILHS3,IRHS2,IRHS3,1)=
+     1            TEMP(ILHS2,ILHS3,IRHS2,IRHS3,1)+Y0*Z0*X1
+                  TEMP(ILHS2,ILHS3,IRHS2,IRHS3,2)=
+     1            TEMP(ILHS2,ILHS3,IRHS2,IRHS3,2)+Y0*Z0*X2
+                  TEMP(ILHS2,ILHS3,IRHS2,IRHS3,3)=
+     1            TEMP(ILHS2,ILHS3,IRHS2,IRHS3,3)+Y0*Z0*X3
+                END DO
+              END DO
+            END DO
+          END DO
+        END IF
+C**ISIZE IS NO. UNIQUE INTEGRALS (3-DIM)
+        DO IRHS=1,ISIZE
+          NR1=IP(IRHS,MODE1)
+          NR2=IP(IRHS,MODE2)
+          NR3=IP(IRHS,MODE3)
+          X1=H1(NR1,M1,1)
+          X2=H1(NR1,M1,2)
+          X3=H1(NR1,M1,3)
+          J0=IRHS*(IRHS-1)/2
+          DO ILHS=1,IRHS
+            NL1=IP(ILHS,MODE1)
+            NL2=IP(ILHS,MODE2)
+            NL3=IP(ILHS,MODE3)
+            Y=H1(NL1,M1,1)
+            XA(ILHS+J0)=XA(ILHS+J0)+Y*(TEMP(NL2,NL3,NR2,NR3,1)
+     1      *X1+TEMP(NL2,NL3,NR2,NR3,2)*X2+TEMP(NL2,NL3,NR2,NR3,3)*
+     2      X3)
+          END DO
+        END DO
+      END DO
+      IF(ITIM3A.EQ.0)THEN
+        CALL TIMIT(3)
+        ITIM3A=1
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE VCI3(NMODE,MODE1,MODE2,MODE3,H1,XQ1,H2,XQ2,
+     1H3,XQ3,NN1,MM1,NN2,MM2,NN3,MM3,
+     1XA,XK,IP,ISIZMX,ISIZE,IP3,ISIZE3,JCI,ISTART,IEND)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      LOGICAL LANCZ,LANZA,LANZB
+      DIMENSION H1(NN1,MM1,3),H2(NN2,MM2,3),H3(NN3,MM3,3)
+      DIMENSION IP(ISIZMX,NMODE)
+      DIMENSION XA(1),XK(1),IP3(ISIZE3,3)
+      DIMENSION XQ1(MM1),XQ2(MM2),XQ3(MM3)
+      COMMON/COUPLE/ICOUPL,JCOUPL
+      COMMON/LANCZO/LANCZ,LANZA,LANZB
+      COMMON/WHICH/IWHICH
+      COMMON/FACTOR/FACTOR
+      COMMON/TIMER/ITIM1A,ITIM1B,ITIM2A,ITIM2B,ITIM3A,ITIM3B,
+     1ITIM4A,ITIM4B,ITIM
+      COMMON/PRINT/IPRINT,JPRINT
+      COMMON/FILASS/IOUT,INP
+      IF(ITIM3A.EQ.0)THEN
+        WRITE(IOUT,*)'Calculating VCI3'
+        CALL FLUSH(IOUT)
+        CALL TIMIT(1)
+      END IF
+      L0=-ISTART+1
+      DO IRHS=ISTART,IEND
+        IF(LANCZ)THEN
+          J0=L0
+          IL1=IRHS
+          IL2=ISIZE
+        ELSE
+          J0=IRHS*(IRHS-1)/2
+          IL1=1
+          IL2=IRHS
+        END IF
+        NR1=IP(IRHS,MODE1)
+        NR2=IP(IRHS,MODE2)
+        NR3=IP(IRHS,MODE3)
+C**FIND RHS INDEX
+        DO IR=1,ISIZE3
+          IF(NR1.EQ.IP3(IR,1).AND.NR2.EQ.IP3(IR,2).AND.
+     1       NR3.EQ.IP3(IR,3))GO TO 1000
+        END DO
+1000    CONTINUE
+        DO ILHS=IL1,IL2
+C**OVERLAP OF REMAINING STATES
+          IS=1
+          DO K=1,NMODE
+            IF(IS.EQ.0)GO TO 3000
+            IF(K.NE.MODE1.AND.K.NE.MODE2.AND.K.NE.MODE3.AND.(
+     1      IP(IRHS,K).NE.IP(ILHS,K)))IS=0
+          END DO
+C**OVERLAP OF REMAINING STATES
+          NL1=IP(ILHS,MODE1)
+          NL2=IP(ILHS,MODE2)
+          NL3=IP(ILHS,MODE3)
+C**FIND LHS INDEX
+          DO IL=1,ISIZE3
+            IF(NL1.EQ.IP3(IL,1).AND.NL2.EQ.IP3(IL,2).AND.
+     1         NL3.EQ.IP3(IL,3))GO TO 2000
+          END DO
+2000      CONTINUE
+C**GET MATRIX ELEMENT
+          MR=IR
+          ML=IL
+          IF(IR.LT.IL)THEN
+            MR=IL
+            ML=IR
+          END IF
+          I=MR*(MR-1)/2+ML
+          X=XK(I)
+          XA(ILHS+J0)=XA(ILHS+J0)+X*IS
+3000      CONTINUE
+        END DO
+        L0=L0+ISIZE-IRHS
+      END DO
+      IF(ITIM3A.EQ.0)THEN
+        CALL TIMIT(3)
+        ITIM3A=1
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE VXCI3(NMODE,MODE1,MODE2,MODE3,H1,XQ1,H2,XQ2,
+     1H3,XQ3,NN1,MM1,NN2,MM2,NN3,MM3,
+     1XA,IP,ISIZMX,ISIZE,TEMP,JCI,
+     2VP,VPR,VC,VCR,VR,VRR,J21,KROT,ISTART,IEND)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      LOGICAL LANCZ,LANZA,LANZB
+      REAL*8 VP(MM3,MM2,MM1),VC(MM3,MM2,MM1,10),VR(J21,MM3,MM2,MM1)
+      REAL*4 VPR(MM3,MM2,MM1),VCR(MM3,MM2,MM1,10),VRR(J21,MM3,MM2,MM1)
+      DIMENSION H1(NN1,MM1,3),H2(NN2,MM2,3),H3(NN3,MM3,3)
+      DIMENSION IP(ISIZMX,NMODE)
+      DIMENSION XA(1),TEMP(JCI,JCI,JCI,JCI,3)
+      DIMENSION XQ1(MM1),XQ2(MM2),XQ3(MM3)
+      COMMON/COUPLE/ICOUPL,JCOUPL
+      COMMON/LANCZO/LANCZ,LANZA,LANZB
+      COMMON/WHICH/IWHICH
+      COMMON/FACTOR/FACTOR
+      COMMON/TIMER/ITIM1A,ITIM1B,ITIM2A,ITIM2B,ITIM3A,ITIM3B,
+     1ITIM4A,ITIM4B,ITIM
+      COMMON/PRINT/IPRINT,JPRINT
+      COMMON/FILASS/IOUT,INP
+      IF(ITIM3A.EQ.0)THEN
+        WRITE(IOUT,*)'Calculating VXCI3'
+        CALL TIMIT(1)
+        CALL FLUSH(IOUT)
+      END IF
+      FACT=0
+      IF(ICOUPL.EQ.3)FACT=1/FACTOR
+      IFACT=1
+      IF(IWHICH.NE.0)THEN
+        IF(ICOUPL.EQ.3)IFACT=1
+        IF(ICOUPL.EQ.4)IFACT=-(NMODE-4)
+      END IF
+      FACTRC=FACT
+      IF(JCOUPL.GT.0)THEN
+        IF(J21.GT.1.AND.ICOUPL.EQ.3)READ(63)VR
+        READ(73)VP
+        READ(83)VC
+      ELSE
+        IF(J21.GT.1.AND.ICOUPL.EQ.3)READ(63)VRR
+        READ(73)VPR
+        READ(83)VCR
+      END IF
+      DO M1=1,MM1
+        DO K=1,3
+          DO ILHS2=1,JCI
+            DO ILHS3=1,JCI
+              DO IRHS2=1,JCI
+                DO IRHS3=1,JCI
+                  TEMP(ILHS2,ILHS3,IRHS2,IRHS3,K)=0
+                END DO
+              END DO
+            END DO
+          END DO
+        END DO
+        IF(JCOUPL.GT.0)THEN
+          DO M2=1,MM2
+C           DO M3=1,MM3
+              DO IRHS2=1,JCI
+                Y1=H2(IRHS2,M2,1)*IFACT
+                YY1=H2(IRHS2,M2,1)
+                Y2=H2(IRHS2,M2,2)*IFACT
+                Y3=H2(IRHS2,M2,3)*IFACT
+            DO M3=1,MM3
+                DO IRHS3=1,JCI
+                  Z1=H3(IRHS3,M3,1)
+                  Z2=H3(IRHS3,M3,2)
+                  Z3=H3(IRHS3,M3,3)
+                  X1=Z1*(VP(M3,M2,M1)*Y1-VC(M3,M2,M1,2)*Y2-
+     1            VC(M3,M2,M1,7)*Y3)-
+     1            Y1*(VC(M3,M2,M1,3)*Z2+VC(M3,M2,M1,9)*Z3)
+     2            -2*VC(M3,M2,M1,8)*Y2*Z2
+                  X1=X1+VC(M3,M2,M1,10)*YY1*Z1*FACT
+                  IF(J21.GT.1.AND.ICOUPL.EQ.3)
+     1            X1=X1+VR(KROT,M3,M2,M1)*YY1*Z1*FACTRC
+                  X2=-Z1*(VC(M3,M2,M1,1)*Y1+2*VC(M3,M2,M1,5)*Y2)-
+     1            2*VC(M3,M2,M1,6)*Y1*Z2
+                  X3=-VC(M3,M2,M1,4)*Y1*Z1
+                  DO ILHS2=1,JCI
+                    Y0=H2(ILHS2,M2,1)
+                    DO ILHS3=1,JCI
+                      Z0=H3(ILHS3,M3,1)
+                      TEMP(ILHS2,ILHS3,IRHS2,IRHS3,1)=
+     1                TEMP(ILHS2,ILHS3,IRHS2,IRHS3,1)+Y0*Z0*X1
+                      TEMP(ILHS2,ILHS3,IRHS2,IRHS3,2)=
+     1                TEMP(ILHS2,ILHS3,IRHS2,IRHS3,2)+Y0*Z0*X2
+                      TEMP(ILHS2,ILHS3,IRHS2,IRHS3,3)=
+     1                TEMP(ILHS2,ILHS3,IRHS2,IRHS3,3)+Y0*Z0*X3
+                    END DO
+                  END DO
+                END DO
+            END DO
+              END DO
+C           END DO
+          END DO
+        ELSE
+          DO M2=1,MM2
+C           DO M3=1,MM3
+              DO IRHS2=1,JCI
+                Y1=H2(IRHS2,M2,1)*IFACT
+                YY1=H2(IRHS2,M2,1)
+                Y2=H2(IRHS2,M2,2)*IFACT
+                Y3=H2(IRHS2,M2,3)*IFACT
+            DO M3=1,MM3
+                DO IRHS3=1,JCI
+                  Z1=H3(IRHS3,M3,1)
+                  Z2=H3(IRHS3,M3,2)
+                  Z3=H3(IRHS3,M3,3)
+                  X1=Z1*(VPR(M3,M2,M1)*Y1-VCR(M3,M2,M1,2)*Y2-
+     1            VCR(M3,M2,M1,7)*Y3)-
+     1            Y1*(VCR(M3,M2,M1,3)*Z2+VCR(M3,M2,M1,9)*Z3)
+     2            -2*VCR(M3,M2,M1,8)*Y2*Z2
+                  X1=X1+VCR(M3,M2,M1,10)*YY1*Z1*FACT
+                  IF(J21.GT.1.AND.ICOUPL.EQ.3)
+     1            X1=X1+VRR(KROT,M3,M2,M1)*YY1*Z1*FACTRC
+                  X2=-Z1*(VCR(M3,M2,M1,1)*Y1+2*VCR(M3,M2,M1,5)*Y2)-
+     1            2*VCR(M3,M2,M1,6)*Y1*Z2
+                  X3=-VCR(M3,M2,M1,4)*Y1*Z1
+                  DO ILHS2=1,JCI
+                    Y0=H2(ILHS2,M2,1)
+                    DO ILHS3=1,JCI
+                      Z0=H3(ILHS3,M3,1)
+                      TEMP(ILHS2,ILHS3,IRHS2,IRHS3,1)=
+     1                TEMP(ILHS2,ILHS3,IRHS2,IRHS3,1)+Y0*Z0*X1
+                      TEMP(ILHS2,ILHS3,IRHS2,IRHS3,2)=
+     1                TEMP(ILHS2,ILHS3,IRHS2,IRHS3,2)+Y0*Z0*X2
+                      TEMP(ILHS2,ILHS3,IRHS2,IRHS3,3)=
+     1                TEMP(ILHS2,ILHS3,IRHS2,IRHS3,3)+Y0*Z0*X3
+                    END DO
+                  END DO
+                END DO
+            END DO
+              END DO
+C           END DO
+          END DO
+        END IF
+        L0=-ISTART+1
+        DO IRHS=1,ISIZE
+          IF(LANCZ)THEN
+            J0=L0
+            IL1=IRHS
+            IL2=ISIZE
+          ELSE
+            J0=IRHS*(IRHS-1)/2
+            IL1=1
+            IL2=IRHS
+          END IF
+          NR1=IP(IRHS,MODE1)
+          NR2=IP(IRHS,MODE2)
+          NR3=IP(IRHS,MODE3)
+          X1=H1(NR1,M1,1)
+          X2=H1(NR1,M1,2)
+          X3=H1(NR1,M1,3)
+          DO ILHS=IL1,IL2
+C**OVERLAP OF REMAINING STATES
+            IS=1
+            DO K=1,NMODE
+              IF(IS.EQ.0)GO TO 1000
+              IF(K.NE.MODE1.AND.K.NE.MODE2.AND.K.NE.MODE3.AND.(
+     1        IP(IRHS,K).NE.IP(ILHS,K)))IS=0
+            END DO
+1000        CONTINUE
+C**OVERLAP OF REMAINING STATES
+            NL1=IP(ILHS,MODE1)
+            NL2=IP(ILHS,MODE2)
+            NL3=IP(ILHS,MODE3)
+            Y=H1(NL1,M1,1)
+            XA(ILHS+J0)=XA(ILHS+J0)+Y*IS*(TEMP(NL2,NL3,NR2,NR3,1)*X1+
+     1      TEMP(NL2,NL3,NR2,NR3,2)*X2+TEMP(NL2,NL3,NR2,NR3,3)*X3)
+          END DO
+          L0=L0+ISIZE-IRHS
+        END DO
+      END DO
+      IF(ITIM3A.EQ.0)THEN
+        CALL TIMIT(3)
+        ITIM3A=1
+        CALL FLUSH(IOUT)
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE CI4(NMODE,MODE1,MODE2,MODE3,MODE4,HL1,HR1,XQ1,HL2,HR2,
+     1XQ2,HL3,HR3,XQ3,HL4,HR4,XQ4,MM1,MM2,MM3,MM4,S,XK,ISIZE,NATOM,QQ,
+     2XZ,AB,B,AA,BB,RR,XX,X0,XL,XM,ILHS,IRHS,NPOT,IPOT,JPOT,CPOT,VP,
+     3VPR,VC,VCR,VR,VRR,J21,KROT)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      REAL*8 VP(MM4,MM3,MM2,MM1),VC(MM4,MM3,MM2,MM1,15),
+     1VR(J21,MM4,MM3,MM2,MM1)
+      REAL*4 VPR(MM4,MM3,MM2,MM1),VCR(MM4,MM3,MM2,MM1,15),
+     1VRR(J21,MM4,MM3,MM2,MM1)
+      DIMENSION HL1(MM1,3),HR1(MM1,3),HL2(MM2,3),HR2(MM2,3)
+      DIMENSION HL3(MM3,3),HR3(MM3,3),HL4(MM4,3),HR4(MM4,3)
+      DIMENSION XK(ISIZE,1),XQ4(MM4)
+      DIMENSION XQ1(MM1),XQ2(MM2),XQ3(MM3),S(NMODE)
+      DIMENSION QQ(NMODE),XZ(NMODE,NMODE,3),AB(NMODE,3),RR(NATOM,NATOM)
+      DIMENSION B(NMODE,NMODE),AA(NMODE,3,3),BB(NMODE)
+      DIMENSION XX(NATOM,3),X0(NATOM,3),XL(NATOM,NMODE,3),XM(NATOM)
+      DIMENSION G1(3,3),XIN(3,3),XMU(3,3),SUP1(3,3),SUP2(3,3),SUP3(10)
+      DIMENSION IPOT(NPOT,6),JPOT(NPOT,6),CPOT(NPOT)
+      COMMON/COUPLE/ICOUPL,JCOUPL
+      COMMON/WHICH/IWHICH
+      COMMON/FACTOR/FACTOR
+      COMMON/TIMER/ITIM1A,ITIM1B,ITIM2A,ITIM2B,ITIM3A,ITIM3B,
+     1ITIM4A,ITIM4B,ITIM
+      COMMON/PRINT/IPRINT,JPRINT
+      COMMON/FILASS/IOUT,INP
+      IF(ITIM4A.EQ.0)THEN
+        WRITE(IOUT,*)'Calculating CI4'
+        CALL FLUSH(IOUT)
+        CALL TIMIT(1)
+      END IF
+      FACT=0
+      IF(ICOUPL.EQ.4)FACT=1/FACTOR
+      IFACT=1
+      IF(IWHICH.NE.0)THEN
+        IF(ICOUPL.EQ.4)IFACT=1
+      END IF
+      TERM=0
+      FACTRC=FACT
+      IF(JCOUPL.GT.0)THEN
+        IF(J21.GT.1.AND.ICOUPL.EQ.4)READ(64)VR
+        READ(74)VP
+        READ(84)VC
+      ELSE
+        IF(J21.GT.1.AND.ICOUPL.EQ.4)READ(64)VRR
+        READ(74)VPR
+        READ(84)VCR
+      END IF
+      DO M1=1,MM1
+        X1=0
+        X2=0
+        X3=0
+        W1=HR1(M1,1)
+        W2=HR1(M1,2)
+        W3=HR1(M1,3)
+C**INTEGRATE OVER SINGLE STATES (START)
+        DO M2=1,MM2
+          Y0=HL2(M2,1)
+          Y1=Y0*HR2(M2,1)*IFACT
+          YY1=Y0*HR2(M2,1)
+          Y2=Y0*HR2(M2,2)*IFACT
+          Y3=Y0*HR2(M2,3)*IFACT
+          DO M3=1,MM3
+            Z0=HL3(M3,1)
+            Z1=Z0*HR3(M3,1)
+            Z2=Z0*HR3(M3,2)
+            Z3=Z0*HR3(M3,3)
+            IF(JCOUPL.GT.0)THEN
+              DO M4=1,MM4
+                V0=HL4(M4,1)
+                V1=V0*HR4(M4,1)
+                V2=V0*HR4(M4,2)
+                V3=V0*HR4(M4,3)
+                X1=X1+VP(M4,M3,M2,M1)*Y1*Z1*V1
+                X1=X1-VC(M4,M3,M2,M1,2)*Y2*Z1*V1-
+     1          VC(M4,M3,M2,M1,3)*Y1*Z2*V1-VC(M4,M3,M2,M1,4)*Y1*Z1*V2-
+     2          VC(M4,M3,M2,M1,9)*Y3*Z1*V1-
+     3          2*VC(M4,M3,M2,M1,10)*Y2*Z2*V1-
+     3          2*VC(M4,M3,M2,M1,11)*Y2*Z1*V2-
+     4          VC(M4,M3,M2,M1,12)*Y1*Z3*V1-
+     5          2*VC(M4,M3,M2,M1,13)*Y1*Z2*V2-
+     6          VC(M4,M3,M2,M1,14)*Y1*Z1*V3
+                X1=X1+VC(M4,M3,M2,M1,15)*YY1*Z1*V1*FACT
+                IF(J21.GT.1.AND.ICOUPL.EQ.4)
+     1          X1=X1+VR(KROT,M4,M3,M2,M1)*YY1*Z1*V1*FACTRC
+                X2=X2-VC(M4,M3,M2,M1,1)*Y1*Z1*V1-
+     1          2*VC(M4,M3,M2,M1,6)*Y2*Z1*V1
+     1          -2*VC(M4,M3,M2,M1,7)*Y1*Z2*V1
+     2          -2*VC(M4,M3,M2,M1,8)*Y1*Z1*V2
+                X3=X3-VC(M4,M3,M2,M1,5)*Y1*Z1*V1
+              END DO
+            ELSE
+              DO M4=1,MM4
+                V0=HL4(M4,1)
+                V1=V0*HR4(M4,1)
+                V2=V0*HR4(M4,2)
+                V3=V0*HR4(M4,3)
+                X1=X1+VPR(M4,M3,M2,M1)*Y1*Z1*V1
+                X1=X1-VCR(M4,M3,M2,M1,2)*Y2*Z1*V1-
+     1          VCR(M4,M3,M2,M1,3)*Y1*Z2*V1-
+     2          VCR(M4,M3,M2,M1,4)*Y1*Z1*V2-
+     2          VCR(M4,M3,M2,M1,9)*Y3*Z1*V1-
+     3          2*VCR(M4,M3,M2,M1,10)*Y2*Z2*V1-
+     3          2*VCR(M4,M3,M2,M1,11)*Y2*Z1*V2-
+     4          VCR(M4,M3,M2,M1,12)*Y1*Z3*V1-
+     5          2*VCR(M4,M3,M2,M1,13)*Y1*Z2*V2-
+     6          VCR(M4,M3,M2,M1,14)*Y1*Z1*V3
+                X1=X1+VCR(M4,M3,M2,M1,15)*YY1*Z1*V1*FACT
+                IF(J21.GT.1.AND.ICOUPL.EQ.4)
+     1          X1=X1+VRR(KROT,M4,M3,M2,M1)*YY1*Z1*V1*FACTRC
+                X2=X2-VCR(M4,M3,M2,M1,1)*Y1*Z1*V1-
+     1          2*VCR(M4,M3,M2,M1,6)*Y2*Z1*V1
+     1          -2*VCR(M4,M3,M2,M1,7)*Y1*Z2*V1
+     2          -2*VCR(M4,M3,M2,M1,8)*Y1*Z1*V2
+                X3=X3-VCR(M4,M3,M2,M1,5)*Y1*Z1*V1
+              END DO
+            END IF
+          END DO
+        END DO
+C**INTEGRATE OVER SINGLE STATES (END)
+        Y=HL1(M1,1)
+        TERM=TERM+Y*(X1*W1+X2*W2+X3*W3)
+      END DO
+      DO K=1,NMODE
+        IF(K.NE.MODE1.AND.K.NE.MODE2.AND.K.NE.MODE3.AND.K.NE.MODE4)THEN
+          TERM=TERM*S(K)
+        END IF
+      END DO
+      XK(ILHS,IRHS)=XK(ILHS,IRHS)+TERM
+      IF(ITIM4A.EQ.0)THEN
+        CALL TIMIT(3)
+        ITIM4A=1
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE V0CI4(NMODE,MODE1,MODE2,MODE3,MODE4,H1,XQ1,H2,XQ2,
+     1H3,XQ3,H4,XQ4,NN1,MM1,NN2,MM2,NN3,MM3,NN4,MM4,XA,IP,ISIZE,
+     2TEMP,JCI,VP,VPR,VC,VCR,VR,VRR,J21,KROT,IP3,ISIZE3)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      REAL*8 VP(MM4,MM3,MM2,MM1),VC(MM4,MM3,MM2,MM1,15),
+     1VR(J21,MM4,MM3,MM2,MM1)
+      REAL*4 VPR(MM4,MM3,MM2,MM1),VCR(MM4,MM3,MM2,MM1,15),
+     1VRR(J21,MM4,MM3,MM2,MM1)
+      DIMENSION H1(NN1,MM1,3),H2(NN2,MM2,3),H3(NN3,MM3,3),H4(NN4,MM4,3)
+      DIMENSION IP(ISIZE,NMODE),IP3(ISIZE3,3)
+      DIMENSION TEMP(JCI,JCI,JCI,JCI,JCI,JCI,3)
+      DIMENSION XA(1)
+      DIMENSION XQ1(MM1),XQ2(MM2),XQ3(MM3),XQ4(MM4)
+      COMMON/COUPLE/ICOUPL,JCOUPL
+      COMMON/WHICH/IWHICH
+      COMMON/FACTOR/FACTOR
+      COMMON/TIMER/ITIM1A,ITIM1B,ITIM2A,ITIM2B,ITIM3A,ITIM3B,
+     1ITIM4A,ITIM4B,ITIM
+      COMMON/PRINT/IPRINT,JPRINT
+      COMMON/FILASS/IOUT,INP
+      IF(ITIM4A.EQ.0)THEN
+        WRITE(IOUT,*)'Calculating V0CI4'
+        CALL FLUSH(IOUT)
+        CALL TIMIT(1)
+      END IF
+      FACT=0
+      IF(ICOUPL.EQ.4)FACT=1/FACTOR
+      IFACT=1
+      IF(IWHICH.NE.0)THEN
+        IF(ICOUPL.EQ.4)IFACT=1
+      END IF
+      FACTRC=FACT
+      IF(JCOUPL.GT.0)THEN
+        IF(J21.GT.1.AND.ICOUPL.EQ.4)READ(64)VR
+        READ(74)VP
+        READ(84)VC
+      ELSE
+        IF(J21.GT.1.AND.ICOUPL.EQ.4)READ(64)VRR
+        READ(74)VPR
+        READ(84)VCR
+      END IF
+      DO M1=1,MM1
+        DO K=1,3
+          DO ILHS2=1,JCI
+            DO ILHS3=1,JCI
+              DO ILHS4=1,JCI
+                DO IRHS2=1,JCI
+                  DO IRHS3=1,JCI
+                    DO IRHS4=1,JCI
+                      TEMP(ILHS2,ILHS3,ILHS4,IRHS2,IRHS3,IRHS4,K)=0
+                    END DO
+                  END DO
+                END DO
+              END DO
+            END DO
+          END DO
+        END DO
+        IF(JCOUPL.GT.0)THEN
+          DO IX3=1,ISIZE3
+            IRHS2=IP3(IX3,1)
+            IRHS3=IP3(IX3,2)
+            IRHS4=IP3(IX3,3)
+            DO M2=1,MM2
+              Y1=H2(IRHS2,M2,1)*IFACT
+              YY1=H2(IRHS2,M2,1)
+              Y2=H2(IRHS2,M2,2)*IFACT
+              Y3=H2(IRHS2,M2,3)*IFACT
+              DO M3=1,MM3
+                Z1=H3(IRHS3,M3,1)
+                Z2=H3(IRHS3,M3,2)
+                Z3=H3(IRHS3,M3,3)
+                DO M4=1,MM4
+                  W1=H4(IRHS4,M4,1)
+                  W2=H4(IRHS4,M4,2)
+                  W3=H4(IRHS4,M4,3)
+                  X1=VP(M4,M3,M2,M1)*Y1*Z1*W1-
+     1            VC(M4,M3,M2,M1,2)*Y2*Z1*W1-
+     1            VC(M4,M3,M2,M1,3)*Y1*Z2*W1-
+     2            VC(M4,M3,M2,M1,4)*Y1*Z1*W2-
+     2            VC(M4,M3,M2,M1,9)*Y3*Z1*W1-
+     3            2*VC(M4,M3,M2,M1,10)*Y2*Z2*W1-
+     3            2*VC(M4,M3,M2,M1,11)*Y2*Z1*W2-
+     4            VC(M4,M3,M2,M1,12)*Y1*Z3*W1-
+     5            2*VC(M4,M3,M2,M1,13)*Y1*Z2*W2-
+     6            VC(M4,M3,M2,M1,14)*Y1*Z1*W3
+                  X1=X1+VC(M4,M3,M2,M1,15)*YY1*Z1*W1*FACT
+                  IF(J21.GT.1.AND.ICOUPL.EQ.4)
+     1            X1=X1+VR(KROT,M4,M3,M2,M1)*YY1*Z1*W1*FACTRC
+                  X2=-VC(M4,M3,M2,M1,1)*Y1*Z1*W1-
+     1            2*VC(M4,M3,M2,M1,6)*Y2*Z1*W1-
+     1            2*VC(M4,M3,M2,M1,7)*Y1*Z2*W1-
+     2            2*VC(M4,M3,M2,M1,8)*Y1*Z1*W2
+                  X3=-VC(M4,M3,M2,M1,5)*Y1*Z1*W1
+                  DO IY3=1,ISIZE3
+                    ILHS2=IP3(IY3,1)
+                    ILHS3=IP3(IY3,2)
+                    ILHS4=IP3(IY3,3)
+                    Y0=H2(ILHS2,M2,1)
+                    Z0=H3(ILHS3,M3,1)
+                    W0=H4(ILHS4,M4,1)
+                    TEMP(ILHS2,ILHS3,ILHS4,IRHS2,IRHS3,IRHS4,1)=
+     1              TEMP(ILHS2,ILHS3,ILHS4,IRHS2,IRHS3,IRHS4,1)+
+     2              Y0*Z0*W0*X1
+                    TEMP(ILHS2,ILHS3,ILHS4,IRHS2,IRHS3,IRHS4,2)=
+     1              TEMP(ILHS2,ILHS3,ILHS4,IRHS2,IRHS3,IRHS4,2)+
+     2              Y0*Z0*W0*X2
+                    TEMP(ILHS2,ILHS3,ILHS4,IRHS2,IRHS3,IRHS4,3)=
+     1              TEMP(ILHS2,ILHS3,ILHS4,IRHS2,IRHS3,IRHS4,3)+
+     2              Y0*Z0*W0*X3
+                  END DO
+                END DO
+              END DO
+            END DO
+          END DO
+        ELSE
+          DO IX3=1,ISIZE3
+            IRHS2=IP3(IX3,1)
+            IRHS3=IP3(IX3,2)
+            IRHS4=IP3(IX3,3)
+            DO M2=1,MM2
+              Y1=H2(IRHS2,M2,1)*IFACT
+              YY1=H2(IRHS2,M2,1)
+              Y2=H2(IRHS2,M2,2)*IFACT
+              Y3=H2(IRHS2,M2,3)*IFACT
+              DO M3=1,MM3
+                Z1=H3(IRHS3,M3,1)
+                Z2=H3(IRHS3,M3,2)
+                Z3=H3(IRHS3,M3,3)
+                DO M4=1,MM4
+                  W1=H4(IRHS4,M4,1)
+                  W2=H4(IRHS4,M4,2)
+                  W3=H4(IRHS4,M4,3)
+                  X1=VPR(M4,M3,M2,M1)*Y1*Z1*W1-
+     1            VCR(M4,M3,M2,M1,2)*Y2*Z1*W1-
+     1            VCR(M4,M3,M2,M1,3)*Y1*Z2*W1-
+     2            VCR(M4,M3,M2,M1,4)*Y1*Z1*W2-
+     2            VCR(M4,M3,M2,M1,9)*Y3*Z1*W1-
+     3            2*VCR(M4,M3,M2,M1,10)*Y2*Z2*W1-
+     3            2*VCR(M4,M3,M2,M1,11)*Y2*Z1*W2-
+     4            VCR(M4,M3,M2,M1,12)*Y1*Z3*W1-
+     5            2*VCR(M4,M3,M2,M1,13)*Y1*Z2*W2-
+     6            VCR(M4,M3,M2,M1,14)*Y1*Z1*W3
+                  X1=X1+VCR(M4,M3,M2,M1,15)*YY1*Z1*W1*FACT
+                  IF(J21.GT.1.AND.ICOUPL.EQ.4)
+     1            X1=X1+VRR(KROT,M4,M3,M2,M1)*YY1*Z1*W1*FACTRC
+                  X2=-VCR(M4,M3,M2,M1,1)*Y1*Z1*W1-
+     1            2*VCR(M4,M3,M2,M1,6)*Y2*Z1*W1-
+     1            2*VCR(M4,M3,M2,M1,7)*Y1*Z2*W1-
+     2            2*VCR(M4,M3,M2,M1,8)*Y1*Z1*W2
+                  X3=-VCR(M4,M3,M2,M1,5)*Y1*Z1*W1
+                  DO IY3=1,ISIZE3
+                    ILHS2=IP3(IY3,1)
+                    ILHS3=IP3(IY3,2)
+                    ILHS4=IP3(IY3,3)
+                    Y0=H2(ILHS2,M2,1)
+                    Z0=H3(ILHS3,M3,1)
+                    W0=H4(ILHS4,M4,1)
+                    TEMP(ILHS2,ILHS3,ILHS4,IRHS2,IRHS3,IRHS4,1)=
+     1              TEMP(ILHS2,ILHS3,ILHS4,IRHS2,IRHS3,IRHS4,1)+
+     2              Y0*Z0*W0*X1
+                    TEMP(ILHS2,ILHS3,ILHS4,IRHS2,IRHS3,IRHS4,2)=
+     1              TEMP(ILHS2,ILHS3,ILHS4,IRHS2,IRHS3,IRHS4,2)+
+     2              Y0*Z0*W0*X2
+                    TEMP(ILHS2,ILHS3,ILHS4,IRHS2,IRHS3,IRHS4,3)=
+     1              TEMP(ILHS2,ILHS3,ILHS4,IRHS2,IRHS3,IRHS4,3)+
+     2              Y0*Z0*W0*X3
+                  END DO
+                END DO
+              END DO
+            END DO
+          END DO
+        END IF
+C**ISIZE IS NO. UNIQUE INTEGRALS (4-DIM)
+        DO IRHS=1,ISIZE
+          NR1=IP(IRHS,MODE1)
+          NR2=IP(IRHS,MODE2)
+          NR3=IP(IRHS,MODE3)
+          NR4=IP(IRHS,MODE4)
+          X1=H1(NR1,M1,1)
+          X2=H1(NR1,M1,2)
+          X3=H1(NR1,M1,3)
+          J0=IRHS*(IRHS-1)/2
+          DO ILHS=1,IRHS
+            NL1=IP(ILHS,MODE1)
+            NL2=IP(ILHS,MODE2)
+            NL3=IP(ILHS,MODE3)
+            NL4=IP(ILHS,MODE4)
+            Y=H1(NL1,M1,1)
+            XA(ILHS+J0)=XA(ILHS+J0)+Y*(
+     1      TEMP(NL2,NL3,NL4,NR2,NR3,NR4,1)*X1+
+     2      TEMP(NL2,NL3,NL4,NR2,NR3,NR4,2)*X2+
+     3      TEMP(NL2,NL3,NL4,NR2,NR3,NR4,3)*X3)
+          END DO
+        END DO
+      END DO
+      IF(ITIM4A.EQ.0)THEN
+        CALL TIMIT(3)
+        ITIM4A=1
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE VCI4(NMODE,MODE1,MODE2,MODE3,MODE4,H1,XQ1,H2,XQ2,
+     1H3,XQ3,H4,XQ4,NN1,MM1,NN2,MM2,NN3,MM3,NN4,MM4,
+     1XA,XK,IP,ISIZMX,ISIZE,IP4,ISIZE4,JCI,ISTART,IEND)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      LOGICAL LANCZ,LANZA,LANZB
+      DIMENSION H1(NN1,MM1,3),H2(NN2,MM2,3),H3(NN3,MM3,3),H4(NN4,MM4,3)
+      DIMENSION IP(ISIZMX,NMODE)
+      DIMENSION XA(1),XK(1),IP4(ISIZE4,4)
+      DIMENSION XQ1(MM1),XQ2(MM2),XQ3(MM3),XQ4(MM4)
+      COMMON/COUPLE/ICOUPL,JCOUPL
+      COMMON/LANCZO/LANCZ,LANZA,LANZB
+      COMMON/WHICH/IWHICH
+      COMMON/FACTOR/FACTOR
+      COMMON/TIMER/ITIM1A,ITIM1B,ITIM2A,ITIM2B,ITIM3A,ITIM3B,
+     1ITIM4A,ITIM4B,ITIM
+      COMMON/PRINT/IPRINT,JPRINT
+      COMMON/FILASS/IOUT,INP
+      IF(ITIM4A.EQ.0)THEN
+        WRITE(IOUT,*)'Calculating VCI4'
+        CALL FLUSH(IOUT)
+        CALL TIMIT(1)
+      END IF
+      L0=-ISTART+1
+      DO IRHS=ISTART,IEND
+        IF(LANCZ)THEN
+          J0=L0
+          IL1=IRHS
+          IL2=ISIZE
+        ELSE
+          J0=IRHS*(IRHS-1)/2
+          IL1=1
+          IL2=IRHS
+        END IF
+        NR1=IP(IRHS,MODE1)
+        NR2=IP(IRHS,MODE2)
+        NR3=IP(IRHS,MODE3)
+        NR4=IP(IRHS,MODE4)
+C**FIND RHS INDEX
+        DO IR=1,ISIZE4
+          IF(NR1.EQ.IP4(IR,1).AND.NR2.EQ.IP4(IR,2).AND.
+     1       NR3.EQ.IP4(IR,3).AND.NR4.EQ.IP4(IR,4))GO TO 1000
+        END DO
+1000    CONTINUE
+        DO ILHS=IL1,IL2
+C**OVERLAP OF REMAINING STATES
+          IS=1
+          DO K=1,NMODE
+            IF(IS.EQ.0)GO TO 3000
+            IF(K.NE.MODE1.AND.K.NE.MODE2.AND.K.NE.MODE3.AND.K.NE.
+     1      MODE4.AND.(IP(IRHS,K).NE.IP(ILHS,K)))IS=0
+          END DO
+C**OVERLAP OF REMAINING STATES
+          NL1=IP(ILHS,MODE1)
+          NL2=IP(ILHS,MODE2)
+          NL3=IP(ILHS,MODE3)
+          NL4=IP(ILHS,MODE4)
+C**FIND LHS INDEX
+          DO IL=1,ISIZE4
+            IF(NL1.EQ.IP4(IL,1).AND.NL2.EQ.IP4(IL,2).AND.
+     1         NL3.EQ.IP4(IL,3).AND.NL4.EQ.IP4(IL,4))GO TO 2000
+          END DO
+2000      CONTINUE
+C**GET MATRIX ELEMENT
+          MR=IR
+          ML=IL
+          IF(IR.LT.IL)THEN
+            MR=IL
+            ML=IR
+          END IF
+          I=MR*(MR-1)/2+ML
+          X=XK(I)
+          XA(ILHS+J0)=XA(ILHS+J0)+X*IS
+3000      CONTINUE
+        END DO
+        L0=L0+ISIZE-IRHS
+      END DO
+      IF(ITIM4A.EQ.0)THEN
+        CALL TIMIT(3)
+        ITIM4A=1
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE VXCI4(NMODE,MODE1,MODE2,MODE3,MODE4,H1,XQ1,H2,XQ2,
+     1H3,XQ3,H4,XQ4,NN1,MM1,NN2,MM2,NN3,MM3,NN4,MM4,
+     1XA,IP,ISIZMX,ISIZE,TEMP,JCI,
+     2VP,VPR,VC,VCR,VR,VRR,J21,KROT,ISTART,IEND)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      LOGICAL LANCZ,LANZA,LANZB
+      REAL*8 VP(MM4,MM3,MM2,MM1),VC(MM4,MM3,MM2,MM1,15),
+     1VR(J21,MM4,MM3,MM2,MM1)
+      REAL*4 VPR(MM4,MM3,MM2,MM1),VCR(MM4,MM3,MM2,MM1,15),
+     1VRR(J21,MM4,MM3,MM2,MM1)
+      DIMENSION H1(NN1,MM1,3),H2(NN2,MM2,3),H3(NN3,MM3,3),H4(NN4,MM4,3)
+      DIMENSION IP(ISIZE,NMODE)
+      DIMENSION XA(1),TEMP(JCI,JCI,JCI,JCI,JCI,JCI,3)
+      DIMENSION XQ1(MM1),XQ2(MM2),XQ3(MM3),XQ4(MM4)
+      COMMON/COUPLE/ICOUPL,JCOUPL
+      COMMON/LANCZO/LANCZ,LANZA,LANZB
+      COMMON/WHICH/IWHICH
+      COMMON/FACTOR/FACTOR
+      COMMON/TIMER/ITIM1A,ITIM1B,ITIM2A,ITIM2B,ITIM3A,ITIM3B,
+     1ITIM4A,ITIM4B,ITIM
+      COMMON/PRINT/IPRINT,JPRINT
+      COMMON/FILASS/IOUT,INP
+      IF(ITIM4A.EQ.0)THEN
+        WRITE(IOUT,*)'Calculating VXCI4'
+        CALL TIMIT(1)
+      END IF
+      FACT=0
+      IF(ICOUPL.EQ.4)FACT=1/FACTOR
+      IFACT=1
+      IF(IWHICH.NE.0)THEN
+        IF(ICOUPL.EQ.4)IFACT=1
+      END IF
+      FACTRC=FACT
+      IF(JCOUPL.GT.0)THEN
+        IF(J21.GT.1.AND.ICOUPL.EQ.4)READ(64)VR
+        READ(74)VP
+        READ(84)VC
+      ELSE
+        IF(J21.GT.1.AND.ICOUPL.EQ.4)READ(64)VRR
+        READ(74)VPR
+        READ(84)VCR
+      END IF
+      DO M1=1,MM1
+        DO K=1,3
+          DO ILHS2=1,JCI
+            DO ILHS3=1,JCI
+              DO ILHS4=1,JCI
+                DO IRHS2=1,JCI
+                  DO IRHS3=1,JCI
+                    DO IRHS4=1,JCI
+                      TEMP(ILHS2,ILHS3,ILHS4,IRHS2,IRHS3,IRHS4,K)=0
+                    END DO
+                  END DO
+                END DO
+              END DO
+            END DO
+          END DO
+        END DO
+        IF(JCOUPL.GT.0)THEN
+        DO M2=1,MM2
+C         DO M3=1,MM3
+C           DO M4=1,MM4
+              DO IRHS2=1,JCI
+                Y1=H2(IRHS2,M2,1)*IFACT
+                YY1=H2(IRHS2,M2,1)
+                Y2=H2(IRHS2,M2,2)*IFACT
+                Y3=H2(IRHS2,M2,3)*IFACT
+          DO M3=1,MM3
+                DO IRHS3=1,JCI
+                  Z1=H3(IRHS3,M3,1)
+                  Z2=H3(IRHS3,M3,2)
+                  Z3=H3(IRHS3,M3,3)
+            DO M4=1,MM4
+                  DO IRHS4=1,JCI
+                    W1=H4(IRHS4,M4,1)
+                    W2=H4(IRHS4,M4,2)
+                    W3=H4(IRHS4,M4,3)
+                    X1=VP(M4,M3,M2,M1)*Y1*Z1*W1-
+     1              VC(M4,M3,M2,M1,2)*Y2*Z1*W1-
+     1              VC(M4,M3,M2,M1,3)*Y1*Z2*W1-
+     2              VC(M4,M3,M2,M1,4)*Y1*Z1*W2-
+     2              VC(M4,M3,M2,M1,9)*Y3*Z1*W1-
+     3              2*VC(M4,M3,M2,M1,10)*Y2*Z2*W1-
+     3              2*VC(M4,M3,M2,M1,11)*Y2*Z1*W2-
+     4              VC(M4,M3,M2,M1,12)*Y1*Z3*W1-
+     5              2*VC(M4,M3,M2,M1,13)*Y1*Z2*W2-
+     6              VC(M4,M3,M2,M1,14)*Y1*Z1*W3
+                    X1=X1+VC(M4,M3,M2,M1,15)*YY1*Z1*W1*FACT
+                    IF(J21.GT.1.AND.ICOUPL.EQ.4)
+     1              X1=X1+VR(KROT,M4,M3,M2,M1)*YY1*Z1*W1*FACTRC
+                    X2=-VC(M4,M3,M2,M1,1)*Y1*Z1*W1-
+     1              2*VC(M4,M3,M2,M1,6)*Y2*Z1*W1-
+     1              2*VC(M4,M3,M2,M1,7)*Y1*Z2*W1-
+     2              2*VC(M4,M3,M2,M1,8)*Y1*Z1*W2
+                    X3=-VC(M4,M3,M2,M1,5)*Y1*Z1*W1
+                    DO ILHS2=1,JCI
+                      Y0=H2(ILHS2,M2,1)
+                      DO ILHS3=1,JCI
+                        Z0=H3(ILHS3,M3,1)
+                        DO ILHS4=1,JCI
+                          W0=H4(ILHS4,M4,1)
+                          TEMP(ILHS2,ILHS3,ILHS4,IRHS2,IRHS3,IRHS4,1)=
+     1                    TEMP(ILHS2,ILHS3,ILHS4,IRHS2,IRHS3,IRHS4,1)+
+     2                    Y0*Z0*W0*X1
+                          TEMP(ILHS2,ILHS3,ILHS4,IRHS2,IRHS3,IRHS4,2)=
+     1                    TEMP(ILHS2,ILHS3,ILHS4,IRHS2,IRHS3,IRHS4,2)+
+     2                    Y0*Z0*W0*X2
+                          TEMP(ILHS2,ILHS3,ILHS4,IRHS2,IRHS3,IRHS4,3)=
+     1                    TEMP(ILHS2,ILHS3,ILHS4,IRHS2,IRHS3,IRHS4,3)+
+     2                    Y0*Z0*W0*X3
+                        END DO
+                      END DO
+                    END DO
+                  END DO
+            END DO
+                END DO
+          END DO
+              END DO
+C           END DO
+C         END DO
+        END DO
+        ELSE
+        DO M2=1,MM2
+C         DO M3=1,MM3
+C           DO M4=1,MM4
+              DO IRHS2=1,JCI
+                Y1=H2(IRHS2,M2,1)*IFACT
+                YY1=H2(IRHS2,M2,1)
+                Y2=H2(IRHS2,M2,2)*IFACT
+                Y3=H2(IRHS2,M2,3)*IFACT
+          DO M3=1,MM3
+                DO IRHS3=1,JCI
+                  Z1=H3(IRHS3,M3,1)
+                  Z2=H3(IRHS3,M3,2)
+                  Z3=H3(IRHS3,M3,3)
+            DO M4=1,MM4
+                  DO IRHS4=1,JCI
+                    W1=H4(IRHS4,M4,1)
+                    W2=H4(IRHS4,M4,2)
+                    W3=H4(IRHS4,M4,3)
+                    X1=VPR(M4,M3,M2,M1)*Y1*Z1*W1-
+     1              VCR(M4,M3,M2,M1,2)*Y2*Z1*W1-
+     1              VCR(M4,M3,M2,M1,3)*Y1*Z2*W1-
+     2              VCR(M4,M3,M2,M1,4)*Y1*Z1*W2-
+     2              VCR(M4,M3,M2,M1,9)*Y3*Z1*W1-
+     3              2*VCR(M4,M3,M2,M1,10)*Y2*Z2*W1-
+     3              2*VCR(M4,M3,M2,M1,11)*Y2*Z1*W2-
+     4              VCR(M4,M3,M2,M1,12)*Y1*Z3*W1-
+     5              2*VCR(M4,M3,M2,M1,13)*Y1*Z2*W2-
+     6              VCR(M4,M3,M2,M1,14)*Y1*Z1*W3
+                    X1=X1+VCR(M4,M3,M2,M1,15)*YY1*Z1*W1*FACT
+                    IF(J21.GT.1.AND.ICOUPL.EQ.4)
+     1              X1=X1+VRR(KROT,M4,M3,M2,M1)*YY1*Z1*W1*FACTRC
+                    X2=-VCR(M4,M3,M2,M1,1)*Y1*Z1*W1-
+     1              2*VCR(M4,M3,M2,M1,6)*Y2*Z1*W1-
+     1              2*VCR(M4,M3,M2,M1,7)*Y1*Z2*W1-
+     2              2*VCR(M4,M3,M2,M1,8)*Y1*Z1*W2
+                    X3=-VCR(M4,M3,M2,M1,5)*Y1*Z1*W1
+                    DO ILHS2=1,JCI
+                      Y0=H2(ILHS2,M2,1)
+                      DO ILHS3=1,JCI
+                        Z0=H3(ILHS3,M3,1)
+                        DO ILHS4=1,JCI
+                          W0=H4(ILHS4,M4,1)
+                          TEMP(ILHS2,ILHS3,ILHS4,IRHS2,IRHS3,IRHS4,1)=
+     1                    TEMP(ILHS2,ILHS3,ILHS4,IRHS2,IRHS3,IRHS4,1)+
+     2                    Y0*Z0*W0*X1
+                          TEMP(ILHS2,ILHS3,ILHS4,IRHS2,IRHS3,IRHS4,2)=
+     1                    TEMP(ILHS2,ILHS3,ILHS4,IRHS2,IRHS3,IRHS4,2)+
+     2                    Y0*Z0*W0*X2
+                          TEMP(ILHS2,ILHS3,ILHS4,IRHS2,IRHS3,IRHS4,3)=
+     1                    TEMP(ILHS2,ILHS3,ILHS4,IRHS2,IRHS3,IRHS4,3)+
+     2                    Y0*Z0*W0*X3
+                        END DO
+                      END DO
+                    END DO
+                  END DO
+            END DO
+                END DO
+          END DO
+              END DO
+C           END DO
+C         END DO
+        END DO
+        END IF
+        L0=-ISTART+1
+        DO IRHS=1,ISIZE
+          IF(LANCZ)THEN
+            J0=L0
+            IL1=IRHS
+            IL2=ISIZE
+          ELSE
+            J0=IRHS*(IRHS-1)/2
+            IL1=1
+            IL2=IRHS
+          END IF
+          NR1=IP(IRHS,MODE1)
+          NR2=IP(IRHS,MODE2)
+          NR3=IP(IRHS,MODE3)
+          NR4=IP(IRHS,MODE4)
+          X1=H1(NR1,M1,1)
+          X2=H1(NR1,M1,2)
+          X3=H1(NR1,M1,3)
+          DO ILHS=IL1,IL2
+C**OVERLAP OF REMAINING STATES
+            IS=1
+            DO K=1,NMODE
+              IF(IS.EQ.0)GO TO 1000
+              IF(K.NE.MODE1.AND.K.NE.MODE2.AND.K.NE.MODE3.AND.K.NE.
+     1        MODE4.AND.(IP(IRHS,K).NE.IP(ILHS,K)))IS=0
+            END DO
+1000        CONTINUE
+C**OVERLAP OF REMAINING STATES
+            NL1=IP(ILHS,MODE1)
+            NL2=IP(ILHS,MODE2)
+            NL3=IP(ILHS,MODE3)
+            NL4=IP(ILHS,MODE4)
+            Y=H1(NL1,M1,1)
+            XA(ILHS+J0)=XA(ILHS+J0)+Y*IS*(
+     1      TEMP(NL2,NL3,NL4,NR2,NR3,NR4,1)*X1+
+     2      TEMP(NL2,NL3,NL4,NR2,NR3,NR4,2)*X2+
+     3      TEMP(NL2,NL3,NL4,NR2,NR3,NR4,3)*X3)
+          END DO
+          L0=L0+ISIZE-IRHS
+        END DO
+      END DO
+      IF(ITIM4A.EQ.0)THEN
+        CALL TIMIT(3)
+        ITIM4A=1
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE MATIN(XA,XAR,N,INP)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      REAL*8 XA(N*(N+1)/2)
+      REAL*4 XAR(N*(N+1)/2)
+      COMMON/COUPLE/ICOUPL,JCOUPL
+      IF(JCOUPL.GT.0)THEN
+        READ(INP)XA
+      ELSE
+        READ(INP)XAR
+        DO I=1,N*(N+1)/2
+          K=N*(N+1)/2+1-I
+          XA(K)=XAR(K)
+        END DO
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE MATOUT(XK,XKR,N,INP)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      REAL*8 XK(N*(N+1)/2)
+      REAL*4 XKR(N*(N+1)/2)
+      COMMON/COUPLE/ICOUPL,JCOUPL
+      IF(JCOUPL.GT.0)THEN
+        WRITE(INP)XK
+      ELSE
+        DO I=1,N*(N+1)/2
+          XKR(I)=XK(I)
+        END DO
+        WRITE(INP)XKR
+      END IF
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE GETPT1(V,NPOT,IPOT,JPOT,CPOT,NMODE,QQ)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION IPOT(NPOT,6),JPOT(NPOT,6),CPOT(NPOT),QQ(NMODE)
+      V=0
+      DO I=NMODE+1,NPOT
+C**MAXIMUM OF 6 MODES COUPLED
+        IF(IPOT(I,2).EQ.0)THEN
+          K=IPOT(I,1)
+          L=JPOT(I,1)
+          TERM=QQ(K)**L
+          V=V+CPOT(I)*TERM
+        END IF
+      END DO
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE GETPT2(V,NPOT,IPOT,JPOT,CPOT,NMODE,QQ)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION IPOT(NPOT,6),JPOT(NPOT,6),CPOT(NPOT),QQ(NMODE)
+      V=0
+      DO I=NMODE+1,NPOT
+        TERM=1
+C**MAXIMUM OF 6 MODES COUPLED
+        IF(IPOT(I,2).NE.0.AND.IPOT(I,3).EQ.0)THEN
+          DO J=1,2
+            K=IPOT(I,J)
+            L=JPOT(I,J)
+            TERM=TERM*QQ(K)**L
+          END DO
+          V=V+CPOT(I)*TERM
+        END IF
+      END DO
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE GETPT3(V,NPOT,IPOT,JPOT,CPOT,NMODE,QQ)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION IPOT(NPOT,6),JPOT(NPOT,6),CPOT(NPOT),QQ(NMODE)
+      V=0
+      DO I=NMODE+1,NPOT
+        TERM=1
+C**MAXIMUM OF 6 MODES COUPLED
+        IF(IPOT(I,3).NE.0.AND.IPOT(I,4).EQ.0)THEN
+          DO J=1,3
+            K=IPOT(I,J)
+            L=JPOT(I,J)
+            TERM=TERM*QQ(K)**L
+          END DO
+          V=V+CPOT(I)*TERM
+        END IF
+      END DO
+      RETURN
+      END
+C****************************************************************
+C****************************************************************
+      SUBROUTINE GETPT4(V,NPOT,IPOT,JPOT,CPOT,NMODE,QQ)
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION IPOT(NPOT,6),JPOT(NPOT,6),CPOT(NPOT),QQ(NMODE)
+      V=0
+      DO I=NMODE+1,NPOT
+        TERM=1
+C**MAXIMUM OF 6 MODES COUPLED
+        IF(IPOT(I,4).NE.0)THEN
+          DO J=1,4
+            K=IPOT(I,J)
+            L=JPOT(I,J)
+            TERM=TERM*QQ(K)**L
+          END DO
+          V=V+CPOT(I)*TERM
+        END IF
+      END DO
+      RETURN
+      END

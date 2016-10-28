@@ -1,0 +1,37 @@
+
+Test LAN.2
+----------
+Performs a J=0 VCI calculation using 1, 2, 3, 4 coupled modes in a selective 
+virtual basis.   The CI matrix is diagonalised with the iterative Davidson/Liu 
+procedure.  The work array is too small to hold the complete hamiltonian matrix.
+
+Key input parameters
+--------------------
+ICI    < 0 selects VCI option.
+NMAX   < 0 constructs the selective CI basis.
+MAXSUM     maximum sums of quanta for selective basis.
+MAXBAS     maximum quanta for selective basis.
+NCYCLE > 0 number of iterations in Davidson/Liu diagonalisation.
+TOLLAN > 0 tolerance of eigenvalues required.
+LANMAX > 0 order of half-size matrix used to set up hamiltonian matrix.
+
+Remarks
+-------
+The VCI matrix is constructed from 1-, 2-, 3-, 4-mode coupled zpe virtual 
+functions (NMAX = -4).  The maximum sum of quanta in the 1-mode basis is 4
+(MAXSUM(1) = 4).  The maximum sum of quanta in the 2-mode basis is 5 (MAXSUM(2)
+= 5).  The maximum sum of quanta in the 3-mode basis is 6 (MAXSUM(3) = 6). The
+maximum sum of quanta in the 4-mode basis is 7 (MAXSUM(3) = 7).
+For each mode, the maximum quantum in the 1-mode basis is 4 (MAXBAS(1,1) = ... 
+= MAXBAS(NMODE,1) = 4).  For each mode, the maximum quantum in the 2-mode basis
+is 3 (MAXBAS(1,2) = ... = MAXBAS(NMODE,2) = 3).  For each mode, the maximum 
+quantum in the 3-mode basis is 2 (MAXBAS(1,3) = ... = MAXBAS(NMODE,3) = 2).
+For each mode, the maximum quantum in the 4-mode basis is 1 (MAXBAS(1,4) = ...
+= MAXBAS(NMODE,4) = 1).
+
+The Davidson/Liu diagonalisation scheme is used at the CI stages, each
+diagonalisation performing a maximum of 10 (NCYCLE = 10) iterations for a
+tolerance of TOLLAN = 1.D-3 cm-1 in the eigenvalues.  The hamiltonian matrices
+are built up in a half-size work matrix whose order is 100 (LANMAX = 100).  In
+some cases, this is not big enough to hold the complete array.
+

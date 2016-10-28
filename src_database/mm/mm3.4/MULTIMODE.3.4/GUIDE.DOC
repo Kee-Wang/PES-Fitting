@@ -1,0 +1,286 @@
+                               USER-GUIDE
+                               ----------
+
+This Section describes in some detail the facilities offered by MULTIMODE.
+It should be read in conjunction with the two Sections 'Input Parameters'
+and 'Sample Inputs and Outputs'.   In the Section 'Input Parameters' all data
+records are specified in full.   In the Section 'Sample Inputs and Outputs'
+various facilities of MULTIMODE are tested, and in particular, key input
+parameters are highlighted.   It will be seen that the test programs fall into
+'five' basic categories:
+
+1..AUX:  This category is mainly concerned with basic set-up facilities, in
+particular, the features associated with the establishment of the Normal Modes.
+
+2..SCF:  This category demonstrates how VSCF (Vibrational SCF) calculations
+are performed.
+
+3..SCFCI:  This category demonstrates how CI calculations can be performed 
+using the (non-orthogonal) VSCF wavefunctions as a CI basis.
+
+4..VCI:  This category demonstrates the use of (orthonormal) virtual zpe 
+wavefunctions in near-variational CI calculations.
+
+5..LAN:  This category demonstrates the use of an iterative diagonalisation
+technique for use with very large VCI hamiltonian matrices.
+
+****************************************************************************
+
+
+Introduction
+------------
+
+In order to run MULTIMODE, the user must supply a subroutine which returns the 
+value of the potential energy of his molecule for any arbitrary values of the 
+cartesian coordinates of the atoms associated with the distortions from
+equilibrium (see the Section 'User-Specific Routines').  It is advised that a
+careful check of his routine is first carried out to establish the presence of
+any spurious 'holes' which will play havoc with numerical integration of the
+potential.   If his potential appears to be well-behaved, then the routines
+USERIN and GETPOT can be compiled in his 'user.f' module.   
+
+The next step is to choose a convenient size for the work array in the module 
+'memo.f' (see the Section 'User-Specific Routines').  This is done by setting 
+the size of MAXSIZ in the PARAMETER statement which appears in the first line 
+of MAIN.  A recommended value is around 3000000.  The value given to MAXSIZ 
+determines the size of the work array which is used to dynamically allocate 
+memory.  If it is set too low, MULTIMODE will halt with a suggested alternative
+value.   But remember; if it is set far too high, space will still be required 
+on disc to hold unnecessary array space, and a exessive amount of memory will 
+be sought.
+
+Start with MAXSIZ as low as possible.   
+
+Since GETPOT is called many times during a run of MULTIMODE, it is advised to 
+use the highest possible level of optimisation supported by the FORTRAN compiler
+when compiling 'user.f'.  Some SGI compilers produce incorrect results if 
+'memo.f' is compiled at -O2, however, and we strongly recommend that the option
+-O1 is used when compiling 'memo.f'.  All remaining modules can be compiled at 
+the highest level of optimisation, and when all modules are linked, the user is
+ready to start.  We recommend that he carries out test runs using the data files
+given in the Section 'Sample Inputs and Outputs' and which are summarised below.
+This will enable him to gain experience in setting up data files, as those in 
+'Sample Inputs and Outputs' will have to be modified for use with his choice of
+molecule.  The following categories have been designed to cover features that 
+the user would naturally wish to address in order to gain familiarity with 
+MULTIMODE.  The test examples are all for the 4-atom (NATOM = 4) molecule H2CS,
+for which a potential in internal coordinates (IWHICH > 0) is supplied.  In all
+cases, coupling of a maximum of three modes (ICOUPL = 3) in the potential and
+coriolis terms is required.
+
+
+Numerical Integration
+---------------------
+
+All integration of matrix elements is carried out numerically, using Gauss
+hermite quadrature to integrate the NBF harmonic-oscillator primitives, 
+followed by optimised HEG (Harris-Engerholm-Gwynn) quadrature to integrate the 
+NVF contracted functions.   There is a Gauss rule which states that MBF points
+will exactly integrate a polynomial of degree no greater than 2*MBF-1.  Hence,
+if MBF = NBF+1, this will be sufficient to exactly integrate the overlap
+matrix of the primitives.  In order to integrate a matrix element which
+contains a potential term in (say) quartic would require the modified condition
+MBF = NBF+3 and so on.  The user will be aware of the degree of his potential
+and he would then set the difference MBF-NBF accordingly in his input data file.
+These Gauss quadrature points are used to contract the basis, after which the
+optimised HEG points are used.  If an SCF or SCFCI procedure is being undertaken
+the number of contracted quanta are input directly as NVF.   If a VCI run is
+being conducted, and the MAXBAS facility is being used (see INPUT.DOC), then
+the value in NVF is overwritten by the maximum quantum required for the VCI
+calculation in MAXBAS.   Whichever procedure is being used, however, the
+algorithm used in order to establish the HEG integration points is as follows.
+The integration of the contracted functions is assumed to follow the same
+criteria as the integration of the primitives, namely that the excess of HEG
+points to contracted functions is again MBF-NBF.  This means that there must
+be sufficient primitives (NVF+MBF-NBF) in order to establish the required HEG
+points, since these are formed from diagonalisation of the Q-expectation
+value matrix in the NBF*NBF matrix of optimised functions (the contracted
+functions are taken from the NVF lowest-energy subset of these optimised 
+functions).   If these conditions are not met, MULTIMODE attempts to recover, 
+from a knowledge of NVF and the excess MBF-NBF.
+
+ 
+1. Basic Set-up Facilities (AUX)
+--------------------------------
+
+These test examples are mainly concerned with features relating to the Normal
+Coordinates, and are terminated after initial tests have been performed by
+setting ISCFCI < 0.  For these initial test examples, many of the input
+parameters are ignored.  Only those relevant to the specific test under
+discussion are highlighted below.
+
+MULTIMODE Version 3.4 employs the Watson Normal Coordinate hamiltonian for 
+non-linear molecules, and therefore requires an input equilibrium geometry in
+cartesian coordinates, the harmonic force constants of the potential (omegas)
+and the corresponding displacements of the atoms (the eigenvectors of FG).  It
+could well be that the user knows all of these quantities, and wishes to use
+them in a run of MULTIMODE.  Test program AUX.1 is such an example.  The user 
+inputs the NUCLEAR MASSES and corresponding EQUILIBRIUM CARTESIAN COORDINATES,
+and indicates to MULTIMODE that he wishes to use his own Normal Coordinates by
+setting INORM = 0.  Since H2CS has six Normal Coordinales, he must input 
+NPOT = 6 values of omega (in cm-1) as IPOT,JPOT,CPOT.  He must also input sets 
+of NORMAL COORDINATE DISPLACEMENTS for each Normal Mode as x,y,z displacements
+for each atom in turn.  Note: there MUST be consistency between the order of
+the NUCLEAR MASSES, EQUILIBRIUM CARTESIAN COORDINATES, NORMAL COORDINATE
+DISPLACEMENTS and the input omegas at IPOT,JPOT,CPOT.  It is most common when
+running an FG analysis to choose a 'convenient' cartesian coordinate system to
+describe the equilibrium configuration (one axis along a bond with an atom at
+the origin is common).  The Watson hamiltonian, however, requires that the
+input axes are the principal axes of rotation, and to instruct MULTIMODE to
+find these from the input geometry, set MCHECK > 0.  In example AUX.1, the
+molecule has been moved out of the yz plane on input to demonstrate this.  On
+inspection of the output from AUX.1, it will be seen that the principal y and z
+axes are correctly in the plane of the molecule.
+
+In the vast majority of cases, the user will rely on MULTIMODE to carry out his
+Normal Coordinate analysis.  In this case he sets INORM > 0.  There are now
+NPOT = 0 values of omega to input at IPOT,JPOT,CPOT and the NORMAL COORDINATE
+DISPLACEMENTS are omitted, as seen in test program AUX.2.
+
+Finally, the user may have a potential function for which the precise position
+of the equilibrium structure is not known exactly, but an approximate structure
+is known.  To obtain the correct Normal Coordinates, the principal axes must 
+correspond to the true equilibrium, and to get MULTIMODE to find it set
+MCHECK < 0.  To find the true position of the minimum, use is made of the
+integration points generated by the input parameters NBF,MBF,NVF.   These may
+either be Gauss-hermite or optimised HEG points as described above in 
+'Numerical Integration'.  For each mode, in turn, the position of the minimum 
+is moved to Q=0 by first fitting the one-dimensional potential to a polynomial, 
+using the three central integration points and finding the position of its 
+minimum.  This process is repeated with five, seven,,... points until the 
+integration points have been exhausted, in which case, the 'best' geometry is 
+used to find the 'PRINCIPAL AXES COORDINATES'.  Test program AUX.3 is an example
+of this, and is in three parts.  AUX.3a uses a modified (non-equilibrium) 
+geometry as input, and inspection of the output reveals that, after fitting to 
+the maximum-allowed eleven points, the true minimum has almost (but not quite) 
+been found (the definition of the equilibrium is that Q=0 for all modes).  The 
+'PRINCIPAL AXES COORDINATES' from AUX.3a are now used as input to AUX.3b.  
+Because of symmetry, the new EQUILIBRIUM CARTESIAN COORDINATES have been 
+'tidied' to give a totally-symmetric structure for H2CS.  This process must be 
+repeated until the true equilibrium structure has been found, as is the case on
+inspection of the output from AUX.3b, where Q=0 for all modes.  Once the true 
+equilibrium has been found, the resulting 'PRINCIPAL AXES COORDINATES' are 
+transferred to the input EQUILIBRIUM CARTESIAN COORDINATES, taking into 
+consideration any strict symmetry requirements, and some other task can be 
+performed by first setting MCHECK = 0.  In AUX.3b, for example, a VSCF job is 
+submitted (ISCFCI = 0).
+
+
+2. Vibrational Self-Consistent Field (SCF)
+------------------------------------------
+
+ISCFCI = 0 is the key parameter for VSCF calculations, and each state is
+found to an energy tolerance given by CONV.  The SCF examples here are all to
+CONV = 1.D-2 cm-1.  When any new system is being investigated, the potential
+and coriolis terms must be established at the integration grids for all of the
+coupled modes demanded by ICOUPL.  If ICOUPL > 0, REAL*8 grids are formed and
+written to disc if IDISC = 0.  If disc space is short, REAL*4 grids can be
+used by setting ICOUPL < 0.  For large systems, a large amount of time can be
+spent writing these grids to disc, but, providing that the final Normal Modes
+have been found (as in the AUX examples) and the optimum number of Gauss points
+and/or HEG points determined by the parameters NBF,MBF,NVF have been determined,
+these grids need only be written ONCE ONLY.  Thereafter, setting IDISC > 0 will
+omit writing these grids, and use the existing ones already on disc.
+
+When performing an SCF calculation, a discreet number of vibrational states
+are found.   There are a variety of ways to indicate those states required.
+The simplest way is merely to determine the lowest -NSTAT vibrational levels,
+by setting NSTAT < 0.  In this case, there are no SCF STATE DEFINITIONS,  and 
+use is made of the omegas to calculate the states required.  Test programs 
+SCF.1 and SCF.2 are examples for which ten such states are found.  SCF.1 uses 
+Normal Modes determined by MULTIMODE, and SCF.2 uses user-supplied Normal Modes.
+If a more specific set of VSCF states are required, set NSTAT > 0 to indicate 
+how many, and set the SCF STATE DEFINITION parameter.   Two types of setting are
+supported.  The first, as in test program SCF.3, is initiated by setting the 
+SCF STATE DEFINITION < 0.  This is followed by NSTAT records which define the
+SPECIFIC STATES.  Each record consists of NMODE = 3*NATOM - 6 integers which 
+signify the specific number of quanta in ALL the modes for all the NSTAT states
+to be determined.  The second, as in test program SCF.4, first sets the SCF 
+STATE DEFINITION to a default value (usually 0), and then inputs NSTAT-1 records
+which indicate number of quanta in corresponding mode, respectively.  In test 
+program SCF.4, all modes are given a default setting of 0 quanta (this is taken
+to be the first VSCF state, in this case, the zero point level), and then the 
+next six VSCF states have a single quantum in each of the six modes, 
+respectively.  The final three states have two quanta in each of the first three
+modes, respectively.   This default method is really only desirable for setting
+up fundamentals and overtones.
+ 
+Test programs SCF.1 to SCF.4 all determine the VSCF states for zero total
+angular momentum (JMAX = 0).  Test program SCF.5 calculates J=0 and J=1 VSCF 
+states by setting JMAX = 1;  J>0 energies for SCF states are obtained by using 
+the adiabatic rotation approximation only.  Currently, all J > 0 levels are 
+assigned according to asymmetric top definitions of Ka,Kc.
+
+
+3. Non-orthogonal VSCF Functions in CI (SCFCI)
+----------------------------------------------
+
+ISCFCI > 0 is the key parameter for all CI calculations, and signifies the
+number of vibrational (JMAX = 0) or rovibrational K-diagonal (JMAX > 0) energies
+required, subject to the print cut-off parameter in CUT.   All CI energies are
+printed in cm-1 relative to the base energy given in EVLJ0, which is usually
+set to zero for J=0 calculations.  In this case, the energies are printed out
+relative to the J=0 zero point.  For J>0 calculations, EVLJ0 is usually input
+as the absolute zero point energy for J=0.  In all the following examples, ten
+CI energies are required (ISCFCI = 10) subject to a cut-off of 1.0D+4 cm-1, and
+only the leading CI coefficient is given in a medium print output (IPRINT = 2).
+An SCFCI calculation is indicated by setting ICI > 0, and this is the number of
+VSCF states to mix in the non-orthogonal CI basis.
+
+In test program SCFCI.1, a J=0 calculation is performed (JMAX = 0) for the
+lowest fifty SCF states (NSTAT = -50), of which the first fourty are used to 
+form the CI basis (ICI = 40).  These basis functions are symmetry-blocked, since
+the vibrations of H2CS span four C2v species (NVSYM = 4), resulting from 
+combinations of the three distinct mode vibrations (NWSYM = 3).  There are
+three A1 modes (NSYM = 3; ISYM = 3 4 5), two B2 modes (NSYM = 2; ISYM = 1 6) and
+one B1 mode (NSYM = 1; ISYM = 2).  ISYM indicates the specific mode and can be
+obtained from inspection of the Normal Mode displacement vectors.   All four 
+symmetry blocks are required (MVSYM = 4; MWSYM = 1 2 3 4).  MWSYM indicates 
+which specific species are required, in this example all of them.  All CI 
+enegies are given relative to the J=0 zero point (EVLJ0 = 0).
+
+Test programs SCFCI.2 and SCFCI.3 perform the same task, namely an initial
+VSCF run for J=0 and J=1 (JMAX = 1) followed by an SCFCI calculation using the
+lowest twenty VSCF functions as basis (ICI = 20).  The J > 0 calculations all
+make use of the adiabatic rotation approximation.  The only difference between
+the two runs is that SCFCI.2 uses REAL*8 disc grids (ICOUPL = 3) and SCFCI.3
+uses REAL*4 disc grids (ICOUPL = -3).  All CI energies are given relative to the
+J=0 zero point energy obtained from the output of test program SCFCI.1 
+(EVLJ0 = 5375.4543), which is obtained from the first (A1) CI block.
+
+
+4. Orthonormal Virtual zpe Functions in CI (VCI)
+------------------------------------------------
+
+This is the most exact algorithm in the MULTIMODE package, and is initiated
+by setting ISCFCI > 0 (as above), and ICI < 0.  If NMAX > 0 or NMAX = 0, then
+-ICI means the maximum quantum of excitation (in ALL modes) in the VCI basis.
+If NMAX > 0, the VCI basis is restricted to a sum of quanta of NMAX.  Test
+program VCI.1 is such an example.  Each individual mode basis function can have
+up to three quanta of excitation (ICI = -3), but the total hartree product CI
+expansion function is only allowed a total sum of three quanta (NMAX = 3).  As
+in the SCFCI test programs, the resulting CI matrix is symmetry-blocked.  It
+will be noticed that the parameter NSTAT = -50, from earlier tests.  Recall that
+this means that the lowest fifty VSCF states would be determined in an SCF run
+of MULTIMODE, starting with the zero point level.  The fact that a VCI run is in
+progress curtails the VSCF procedure after the initial state has been 
+determined, and the zpe virtual functions are therefore used in the VCI.  If, 
+for some reason, the user thinks that some other VSCF would be more appropriate
+for his VCI basis, he should use the NSTAT > 0 facility (see SCF above), and 
+input his preferred choice of VSCF state as the initial SPECIFIC STATE.  There
+is a research facility for VCI calculations (ICI < 0) whereby it is possible
+to dump information about wavefunctions to a disc file for further scrutiny,
+for example the study of transition moments, etc..  This facility is not yet
+released, but is controlled by the parameter IDUMP.  For the time being the
+user should set IDUMP = 0.
+
+If NMAX = 0, the VCI basis is unrestricted, but this may lead to extremely
+large CI matrices, especially as the number of modes increases.  It is advised
+to first run a job with MATSIZ > 0.  This merely instructs MULTIMODE to work
+out the matrix size(s) and then STOP.   If they appear to be manageable, he
+can continue by running the same data set with MATSIZ = 0.  Test programs
+VCI.2a and VCI.2b do this.   As a matter of interest, it will be noticed from
+the output of VCI.2a that six modes excited to a maximum of three quanta without
+restriction (NATOM = 4, ICI = -3, NMAX = 0), combine to give four CI matrices 
+each of size 1024, even when utilising full C2v symmetry, so beware!
+

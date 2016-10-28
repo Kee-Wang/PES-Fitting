@@ -1,0 +1,269 @@
+                     USER-SPECIFIC ROUTINES
+                     ----------------------
+
+The body of the code is `multimode.3.4.f'; user-specific codes are `memo.f'
+and `user.f'.  A brief summary of the latter two codes is as follows:
+
+
+memo.f
+------
+
+The module `memo.f' sets the size of RAM to be used, and it also opens all
+input/output files.   The RAM is set by the statement
+
+      PARAMETER (MAXSIZ=XXXX)
+
+If the current RAM specified by MAXSIZ is exceeded during a run of `multimode',
+the program stops with the message:
+
+     `MEMORY EXHAUSTED'
+
+followed by the current and projected size of MAXSIZ.  The user should
+recompile `memo.f' with the new value of MAXSIZ and try again.
+
+
+There are several files used in `multimode'.  All files are opened in `memo.f';
+the user must modify these OPEN statements in order to write them onto a disc 
+of his/her choosing.  All files except units 1 and 2 are written UNFORMATTED.
+The definitions of the files are as follows:
+
+Unit 1:   Contains the standard input data for `multimode' in FREE FORMAT 
+
+Unit 2:   Contains the FORMATTED output from `multimode'
+ 
+Unit 20:  Lanczos file holding hamiltonian half-matrix
+
+Unit 21:  Basic rovibrational integrals for one-mode coupling
+
+Unit 22:  Basic rovibrational integrals for two-mode coupling
+
+Unit 23:  Basic rovibrational integrals for three-mode coupling
+
+Unit 24:  Basic rovibrational integrals for four-mode coupling
+
+Units 31 to 39:  Basic rovibrational integrals for coriolis terms
+
+Unit 40:  Contains the final VSCF information in each UNFORMATTED record
+          State number, assignment, J, Ka, Kc, energy 
+
+Unit 45:  Contains the final CI information in each UNFORMATTED record
+          State number, assignment, J, Ka, Kc, energy
+
+For BOTH units 40 and 45, 
+          State number is an (integer) quantity representing the numbering of
+          the VSCF or CI state
+          Assignment is an (integer) sequence of NMODE numbers which represnt 
+          the number of quanta in each Normal mode (see INPUT Section for 
+          definition of NMODE)
+          J is the (integer) total angular momentum quantum number
+          Ka is the (integer) asymmetric top quantum number along the principal
+          Z-axis
+          Kc is the (integer) asymmetric top quantum number along the principal
+          X-axis
+          energy is the (double precision) energy of the VSCF or CI state
+          in cm-1 relative to the reference energy EVLJ0 (see INPUT Section).
+          In the event that EVLJ0 is given a value of ZERO, the Band origin of
+          the zero point level is written as its absolute energy in cm-1.  In
+          this case, all other energies are relative to this zero point
+          energy 
+
+Unit 50:  Scratch file used to store VSCF wavefunctions if followed by an
+          SCFCI calculation
+
+Unit 52:  Lanczos work file
+
+Unit 53:  Lanczos work file
+
+Unit 54:  Optional Lanczos work file
+
+Unit 55:  Optional Lanczos work file
+
+Unit 58:  VCI dump scratch file
+
+Unit 59:  VCI dump scratch file
+
+Unit 60:  VCI dump file
+
+Unit 61:  Rigid-rotor energies at each one-mode grid point
+
+Unit 62:  Rigid-rotor energies at each two-mode grid point
+
+Unit 63:  Rigid-rotor energies at each three-mode grid point
+
+Unit 64:  Rigid-rotor energies at each four-mode grid point
+
+Unit 71:  Potential energy at each one-mode grid point
+
+Unit 72:  Potential energy at each two-mode grid point
+
+Unit 73:  Potential energy at each three-mode grid point
+
+Unit 74:  Potential energy at each four-mode grid point
+
+Unit 81:  Vibrational coriolis coupling data at each one-mode grid point
+
+Unit 82:  Vibrational coriolis coupling data at each two-mode grid point
+
+Unit 83:  Vibrational coriolis coupling data at each three-mode grid point
+
+Unit 84:  Vibrational coriolis coupling data at each four-mode grid point
+
+Unit 91:  Rotational coriolis coupling data at each one-mode grid point
+
+Unit 92:  Rotational coriolis coupling data at each two-mode grid point
+
+Unit 93:  Rotational coriolis coupling data at each three-mode grid point
+
+Unit 94:  Rotational coriolis coupling data at each four-mode grid point
+
+For the sets of files (units 21, 22, 23, 24), (units 61, 62, 63, 64), 
+(units 71, 72, 73, 74), (units 81, 82, 83, 84), (units 91, 92, 93, 94), the 
+sizes grow permutationally from one-mode to four-mode coupling. 
+
+
+user.f
+------
+
+The modules user.f contains four routines which may be modified by the user in 
+order to (a) interface with his/her potential energy routines, and (b) produce
+the correct symmetry-adapted normal coordinate vectors and principal axis
+geometries in cases of symmetric or spherical top molecules.
+
+1.  USERIN
+
+2.  GETPOT
+
+3.  ROTATE
+
+4.  RTGEOM
+
+
+(a) Potential Energy interface routines
+    -----------------------------------
+
+The calling sequences to these routines are:
+
+1.    CALL USERIN
+
+2.    CALL GETPOT(V,NATOM,XX,RR)
+
+where V is a DOUBLE PRECISION variable which must contain the potential energy
+in hartrees on exit.  NATOM is an INTEGER variable denoting the number of
+atoms in the molecule, and XX, RR are DOUBLE PRECISION arrays of dimensions
+
+      DIMENSION XX(NATOM,3),RR(NATOM,NATOM)
+
+XX contains the cartesian coordinates of the NATOM atoms, where
+XX(NATOM,1), XX(NATOM,2), XX(NATOM,3) are the x-, y-, z-coordinates 
+respectively.  RR is reserved space for the internuclear distances between the 
+atoms.  If bond distances are required, the user may call the utility routine 
+BONDS from within GETPOT.
+
+      CALL BONDS(NATOM,RR,XX)
+
+The routines USERIN and GETPOT must be present ALWAYS.
+
+USERIN can be used to read (for example) any data that the user may require to
+define his potential.  If the user wishes to append the standard input data
+file to `multimode' with his own data, and/or output any information to the 
+standard output file produced by `multimode', he may use INP and/or IOUT in the
+COMMON block
+
+      COMMON/FILASS/IOUT,INP
+
+respectively.  If no such data are required, then USERIN may be treated as a
+dummy routine which immediately exits, but it is ALWAYS called by `multimode'.
+
+GETPOT is used as an interface with the user's own routine(s) which evaluate
+the potential at the cartesian coordinates held in XX(NATOM,3) which are
+passed to GETPOT (or at the internuclear bond distances held in RR(NATOM,NATOM)
+which are returned from a user-initiated call to BONDS, if required).  
+
+If the arrays XX or RR are required by the user in his own routine(s), they
+must be passed, along with NATOM, in the calling sequence(s) to his routine(s),
+
+AND MUST BE DIMENSIONED:  XX(NATOM,3),RR(NATOM,NATOM) IN HIS ROUTINE(S).
+
+The COMMON block
+
+      COMMON/FUNDAM/WAVENM,ATTOJ,BOHR,ELMASS,RAD
+
+contains some useful fundamental constants:
+
+WAVENM:  Conversion from hartrees to wavenumbers
+ATTOJ:   Conversion from atojoules to hartrees
+BOHR:    Conversion from bohr to Angstroms
+ELMASS:  Conversion from Unified atomic mass units to electron mass units
+RAD:     Conversion from radians to degrees
+
+which have been initialised to the latest IUPAC standards.  These are for use
+by the user, if required.  These constants require, for example, that
+hartrees*WAVENM = wavenumbers, etc.
+
+
+(b) Normal coordinate and principal axis rotation routines
+    ------------------------------------------------------
+
+The calling sequences to these routines are:
+
+3.    CALL ROTATE(NATOM,X0,OMEGA,NMODE,XL,WAVENM)
+
+with the interface
+
+      DIMENSION X0(NATOM,3),OMEGA(NMODE),XL(NATOM,NMODE,3)
+
+4.    CALL RTGEOM(NATOM,XX,E,WAVENM)
+
+with the interface
+
+      DIMENSION XX(NATOM,3),E(3)
+      COMMON/MOMI/XK(3,3),XMU(3,3)
+
+respectively.  These routines already exist, and in the majority of cases when
+asymmetric tops will be under observation, these routines simply EXIT.
+
+In cases where there are E symmetries (symmetric tops) or F symmetries
+(spherical tops), the user must supply routines to get correct symmetry-
+-adapted Normal Coordinate eigenvectors (ROTATE) and/or a principal axis
+geometry which reflects the symmetry of the molecule (RTGEOM).
+
+In ROTATE, X0(NATOM,3) is the equilibrium geometry, OMEGA(NMODE) are the
+omegas of the Normal Coordinate analysis, and XL(NATOM,NMODE,3) are the
+eigenvectors of the Normal Coordinate analysis.  It will be observed, in
+certain special cases, that two or three values of OMEGA will be identical
+(subject to a suitable tolerance).  In this case, the eigenvectors of the
+Normal coordinate analysis for these degenerate modes will be scrambled.  If it
+is desired to analyse the rovibrational energies in Cs or higher symmetry, 
+these vectors must be 'cleaned'.  Depending on how the user has defined the 
+equilibrium geometry of the molecule which reflects this symmetry, he must 
+choose two displacements which must be equal (subject to sign) in his chosen
+coordinate system.   He then rotates the degenerate vectors in the usual way.
+In cases when there are three degenerate levels, a further rotation will 
+usually be required, having first 'cleaned' two vectors.   Subroutine ROTATE
+contains code for two rotations of the vectors of triply-degenerate OMEGAs, and
+this can be modified for any system that will be encountered by 'Multimode'.
+
+In RTGEOM, XX(NATOM,3) is the (unrotated) principlal axis geometry, E(3)
+are the eigenvalues, and XK(3,3) are the eigenvectors of the diagonalisation of
+the moment of inertia matrix (1/2E corresponds to the rotational constant, and
+XK are stored in columns).  XMU(3,3) is not used.   It may be necessary, as in
+ROTATE above, to select a principal axis geometry which reflects the symmetry
+in which the user wishes to work.  The geometry produced by 'Multimode' may
+not be suitable for his purposes, in which case, the user must rotate to a
+geometry which reflects the symmetry of his choice.   He will then use this
+geometry to define the symmetrisation of the Normal Coordinate vectors in
+ROTATE above.  Subroutine RTGEOM contains code for the rotation of the 
+principal axis geometry, and this can be modified for any system that will be 
+encountered by 'Multimode'.
+
+
+The code `multimode' contains several machine-specific calls to timer routines.
+Currently computers supported are CRAY, IBM, and SGI.  The user must comment 
+out or delete timing routines to machines not being used.  Also, there are 
+calls to 'FLUSH' that are currently commented out.  This routine flushes the 
+output buffer.
+
+
+Note...`multimode' calls timer routines for CRAY, IBM, SGI (these are also
+available from us).
+

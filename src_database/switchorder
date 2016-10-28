@@ -1,0 +1,35 @@
+#!/bin/csh -f
+
+set input = $1
+set nfile = 100
+set i = 1
+while ( $i <= $nfile )
+
+set temp1 = `expr $i - 1`
+set count = `expr $temp1 \* 8`
+set hatree = `expr $count + 1`
+set natom = `expr  $count + 2`
+set lineAtom1 = `expr $count + 3`
+set lineAtom2 = `expr $count + 4`
+set lineAtom3 = `expr $count + 6`
+set lineAtom4 = `expr $count + 7`
+set lineAtom5 = `expr $count + 5`
+set lineAtom6 = `expr $count + 8`
+
+####What arrangement of atoms do you want?
+head -n $hatree $input | tail -1 >> energy
+head -n $natom $input | tail -1 >> energy
+head -n $lineAtom1 $input | tail -1 >> energy
+head -n $lineAtom2 $input | tail -1 >> energy
+head -n $lineAtom3 $input | tail -1 >> energy
+head -n $lineAtom4 $input | tail -1 >> energy
+head -n $lineAtom5 $input | tail -1 >> energy
+head -n $lineAtom6 $input | tail -1 >> energy
+#head -n $lineAtom7 $input$tail.out | tail -1 >> energy
+#head -n $lineAtom8 $input$tail.out | tail -1 >> energy
+#head -n $lineAtom9 $input$tail.out | tail -1 >> energy
+#head -n $lineAtom10 $input$tail.out | tail -1 >> energy
+
+set i = `expr $i + 1`
+
+end

@@ -1,0 +1,12 @@
+job id:         112364.macronode.chem.emory.edu
+input file:     pts
+exicutalbe: splitandsubmit
+job starts at:  Fri Mar 25 00:13:13 EDT 2016
+submitted from: node8.chem.emory.edu
+submitted to:  
+node3
+node3
+node3
+node3
+
+job ends at:    Fri Mar 25 00:14:04 EDT 2016

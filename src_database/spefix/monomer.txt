@@ -1,0 +1,4 @@
+co2, optg, ccsd(t)-f12/avtz, hatree
+-100.39473795   
+h2o, hatree
+-100.36535833

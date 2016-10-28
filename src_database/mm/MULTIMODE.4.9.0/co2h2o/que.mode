@@ -1,0 +1,47 @@
+#!/bin/bash
+#PBS -q xeon16
+#PBS -l nodes=1:ppn=1
+#PBS -N mm 
+#PBS -r n
+#PBS -c n
+#PBS -m n
+#PBS -e /dev/null
+#PBS -o /dev/null
+#PBS -S /bin/sh
+
+id=`echo $PBS_JOBID |cut -d. -f1`
+log="$PBS_O_WORKDIR/sub.mm.${id}"
+exe=${exe:="mm.x"}
+infile="fort.1"
+outfile="fort.2"
+
+echo "job id:        " $PBS_JOBID  >> $log
+echo "input file:    " $infile $PBS_JOBNAME >> $log       
+echo "exicutalbe for mm:" $exe >> $log       
+echo "job starts at: " `date` >> $log
+echo "submitted from:" $PBS_O_HOST >> $log
+echo "submitted to:  "  >> $log
+cat $PBS_NODEFILE >> $log
+echo "" >> $log
+
+
+TMPDIR="/scratch2/kee/mm-$id"
+mkdir $TMPDIR
+cd $TMPDIR
+mkdir temp
+if [ $PWD = $TMPDIR ]; then
+  cp $PBS_O_WORKDIR/$infile .
+  cp $PBS_O_WORKDIR/$exe .
+  cp -r $PBS_O_WORKDIR/coef .
+   cp -r $PBS_O_WORKDIR/co2peslongrange.coeff.dat .
+
+  echo ./$exe  >>$log 2>&1
+  ./$exe  >>$log 2>&1
+
+  cp $outfile $PBS_O_WORKDIR/
+  cd ..
+  rm -rf $TMPDIR
+
+fi
+
+echo "job ends at:   " `date`  >> $log

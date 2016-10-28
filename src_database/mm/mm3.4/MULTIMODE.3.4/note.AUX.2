@@ -1,0 +1,39 @@
+
+Test AUX.2
+----------
+Tests the internal Normal Mode analysis facility.
+
+Key input parameters
+--------------------
+INORM  > 0 forces `multimode' along the required route.
+IWHICH > 0 indicates user-supplied potential in internal coordinates.
+NPOT   = 0 (suggested `book-keeping' value...see below...parameter ignored)
+ISCFCI < 0 terminates `multimode' on completion of the Normal Mode analysis.
+
+Remarks
+-------
+In the majority of cases, the user will require `multimode' to carry out the
+Normal Mode analysis that is required in order to facilitate the SCF/CI
+procedures associated with the Watson hamiltonian.   In such cases, note that
+the potential function MUST be given in internal coordinates (IWHICH > 0) and
+supplied by the user (see Manual for definitions of user-supplied routines
+USERIN and GETPOT).  For potentials in internal coordinates, the parameter NPOT
+is allocated by `multimode' to the number of Normal Modes of the system (see
+Manual for the use of NATOM and NOTTR to define the number of modes), and is 
+ignored on input, although an input value of NPOT = 0 is suggested...see below.
+
+When using the Normal Mode facility (INORM > 0), the NPOT values of `omega'
+input as IPOT,JPOT,CPOT are omitted from the input parameters.  Also, when
+using the Normal Mode facility (INORM > 0), the NORMAL COORDINATE
+DISPLACEMENTS are omitted from the input parameters.
+
+In keeping with all AUX examples, ISCFCI < 0 is used to terminate `multimode'
+after completion of the required procedure.  To continue with the correct
+Normal Coordinates, set ISCFCI = 0 (for SCF) or > 0 (for CI).
+
+If symmetry exists, it may be necessary to modify the Normal Mode vectors for
+those whose absolute values should be equal.   This will usually entail
+modifying the last few digits of the appropriate vectors in those given by
+`multimode' to cancel rounndingg errors.  In this case, it will be necessary to
+continue the calculations with INORM = 0.
+

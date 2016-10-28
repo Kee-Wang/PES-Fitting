@@ -1,0 +1,511 @@
+                          INPUT PARAMETERS
+                          ----------------
+
+            Definitions of input parameters on fort.1
+
+Throughout this documentation, much use is made of the SIGN of an input
+parameter.  This is to be able to signify, with a single datum, several
+variants relating to the facility highlighted.  In cases where a particular
+value of the datum is required (for example the value of J, input as JMAX),
+the modulus of the input parameter is to be assumed.  The sign of the input
+datum indicates how this parameter is to be used.  For example, JMAX>0 is the
+prompt for a full vibration-rotation analysis, whereas JMAX<0 indicates that
+the less complete adiabatic rotation procedure is to be adopted.  In both cases
+the calculation is to be performed for values of the total angular momentum 
+quantum number J = |JMAX|.  If however, no specific value of the input datum is
+indicated or implied, the values of +1, 0 ,-1 will always be sufficient.  Cases
+where this is not so will be clearly indicated in the documentation.  Input is
+in free-format unless otherwise stated.
+
+C****************************************************************************
+C**TITLE
+C-------
+C**
+C**TITLE:   Any suitable title...maximum 80 characters
+
+C****************************************************************************
+C**NATOM,NSTAT,CONV,ICOUPL,ICOUPC,ISCFCI,IWHICH,IDISC,NROTTR,JMAX,MCHECK,INORM
+C-----------------------------------------------------------------------------
+C**
+C**NATOM:   Number of atoms (number of Normal Coordinates NMODE=3N-6, unless
+C**         facility NROTTR is used - see below)
+C**NSTAT:   Number of SCF states required
+C**         NSTAT>0: Input NSTAT specific SCF states depending on NDEF (below)
+C**         NSTAT<0: Program generates -NSTAT SCF states in increasing energy
+C**CONV:    Convergence threshold for SCF states in cm-1
+C**ICOUPL:  Number of modes coupled in potential integration (1,2,3,4,5,6)
+C**         ICOUPL>0: use REAL*8 grid
+C**         ICOUPL<0: use REAL*4 grid (half the disc storage as REAL*8)
+C**ICOUPC:  Number of modes coupled in coriolis integration (1,2,3,4)
+C**         ICOUPC>0: use REAL*8 grid
+C**         ICOUPC<0: use REAL*4 grid (half the disc storage as REAL*8)
+C**         Note: ICOUPC can NOT be greater than ICOUPL
+C**ISCFCI:  Number of final CI energies required (if positive) for VSCF-CI or 
+C**         VCI (see ICI below)
+C**         ISCFCI>0: SCF + CI calculation
+C**         ISCFCI=0: SCF only
+C**         ISCFCI<0: Terminates after preliminary checks (see MCHECK,INORM,
+C**         IREACT, MOLPRO below)
+C**IWHICH:  Type of input potential
+C**         IWHICH=0: Conventional Normal coordinate force field...Normal mode
+C**         analysis and force field are assumed to be supplied by user
+C**         IWHICH>0: Internal coordinate (global) potential
+C**         IWHICH<0: Normal coordinate potential from fitted potential
+C**                   if MOLPRO>0
+C**         IWHICH<0: Normal coordinate potential from user-supplied routine
+C**                   if MOLPRO=0
+C**         IWHICH<0: Normal coordinate potential from interpolated potential
+C**                   if MOLPRO<0
+C**IDISC:   IDISC=0: Write potential and coriolis grid values to disc
+C**         IDISC>0: Assumes grid values already on disc
+C**         Rigid-rotor energies written to (61),(62),(63),(64) for
+C**         ICOUPC=1,2,3,4
+C**         Potential written to units (71),(72),(73),(74),(75),(76) for
+C**         ICOUPL=1,2,3,4,5,6
+C**         Coriolis (vibration) written to units (81),(82),(83),(84) for
+C**         ICOUPC=1,2,3,4
+C**         Coriolis (rotation) written to units (91),(92),(93),(94) for
+C**         ICOUPC=1,2,3,4
+C**NROTTR:  Number of rotational and translational degrees of freedom to be
+C**         included in 'vibrational' modes 
+C**         (number of modes = NMODE=3*NATOM-6+NROTTR)
+C**JMAX:    Total angular momentum quantum number
+C**         JMAX>0: perform exact Whitehead-Handy if ICI < 0 (below)
+C**         JMAX<0: perform adiabatic rotation if ICI < 0 (below)
+C**         For VSCF only (ISCFCI = 0) or VSCF-CI (ICI > 0) perform adiabatic
+C**         rotation
+C**MCHECK:  MCHECK=0: Use input coordinate system as principal axis system
+C**         MCHECK>0: Transform equilibrium geometry to principal axis system,
+C**         and calculate rotational constants. Program continues with geometry
+C**         in principal axis system (terminate if ISCFCI < 0)
+C**         MCHECK<0: Finds minimum of potential (terminate if ISCFCI < 0)
+C**INORM:   INORM=0: Do not perform Normal mode analysis
+C**         INORM>0: Perform Normal mode analysis with internal coordinate
+C**         (minimum) potential (IWHICH=1) (terminate if ISCFCI < 0)
+C**         INORM<0: Perform Normal mode analysis with internal coordinate
+C**         (saddle point) potential (IWHICH=1) (terminate if ISCFCI < 0)
+C**
+C**         Important note:  Normal modes are ordered in increasing energy.
+
+C****************************************************************************
+C**ICI,NMAX,CUT,EVLJ0,NVALR,KSTEP,IPRINT,MATSIZ,IREACT,MOLPRO,MOLINC
+C-------------------------------------------------------------------
+C**
+C**ICI:     CI basis definition
+C**         ICI>0: Number of specific VSCF states in VSCF-CI calculation
+C**         ICI<0: -ICI quanta in each mode in VCI calculation (if NMAX.GE.0):
+C**NMAX:    NMAX>0: Maximum sum of quanta in VCI basis
+C**         NMAX=0: Unrestricted sum of quanta
+C**         NMAX<0: Maximum number coupled modes in basis ... maximum -5
+C**         (see MAXSUM, MAXBAS below)
+C**CUT:     Cutoff energy (cm-1) for CI printout
+C**EVLJ0:   Reference energy (cm-1) for J>0 CI calculations.  In general, this
+C**         will be the zero point energy for J=0, which is printed at the end
+C**         of the output for J=0.  This value will depend on the value of the
+C**         user's potential at the minimum.  The user may wish to scale his
+C**         potential such that the value at the minimum is zero, in which case
+C**         the value printed for J=0 is the true zero point energy in cm-1
+C**         If the reference geometry (see X0 below) is not at the potential
+C**         minimum, the true zero point energy can only be determined if the
+C**         potential at the reference geometry is defined to be zero, in this
+C**         case the zero point energy will be the value printed for J=0,
+C**         scaled by the energy difference between that at the reference
+C**         geometry and that at the true minimum.
+C**NVALR:   Number of rovibrational levels required
+C**KSTEP:   Increment between successive K (0 to 2*J+1)
+C**         For KSTEP = 0, only one K-diagonal step is carried out, for Ka = 0
+C**IPRINT:  Level of output
+C**         IPRINT=3: Print everything
+C**         IPRINT=2: Omit rotation matrix element output if J>0
+C**         IPRINT=1: Omit SCF output, and K-diagonal output if J>0
+C**         IPRINT=0: Omit integration grid and normal coordinate output
+C**         IPRINT>0: Print full details of Reaction Path; print ONE (largest) 
+C**         CI coefficient
+C**         IPRINT=0: Print ONE (largest) CI coefficient
+C**         IPRINT<0: Print -IPRINT largest CI coefficients
+C**MATSIZ:  Generate VCI or VSCF matrix size
+C**         MATSIZ=0: Normal run
+C**         MATSIZ>0: Calculate current size of VCI matrix and terminate
+C**                   Calculate (energy-based) VSCF states and terminate
+C**IREACT:  Mode number of floppy mode for reaction path hamiltonian
+C**         IREACT=0: Normal run
+C**         IREACT=mode: Actual (curvilinear) mode in reaction path
+C**         If IREACT>0: terminate after 'Normal mode' analysis if ISCFCI < 0
+C**         If IREACT<0: denotes 'abinitio' algorithm - terminate after 
+C**         'Normal mode' analysis if ISCFCI < 0
+C**MOLPRO:  Link stage with abinitio package (such as MOLPRO)
+C**         MOLPRO=0: Normal run
+C**         MOLPRO=1: Produce MOLPRO file for 1-dim Gauss grids using input
+C**                   harmonic (omega) force field (IWHICH=0)
+C**         MOLPRO=2: Fit 1-dim energies from MOLPRO=1 to 'full' or 'even'
+C**                   polynomials depending on ISYM(I)
+C**         MOLPRO=3: Generate 2-dim HEG grids using input fitted Gauss V(Q)
+C**                   force field (IWHICH=0)
+C**         MOLPRO=4: Fit 2-dim energies from MOLPRO=3
+C**         MOLPRO=5: Generate 3-dim HEG grids using input fitted HEG V(Q1,Q2)
+C**                   force field (IWHICH=0)
+C**         MOLPRO=6: Fit 3-dim energies from MOLPRO=5
+C**         MOLPRO=7: Generate 4-D HEG grids using input fitted HEG V(Q1,Q2,Q3)
+C**                   force field (IWHICH=0)
+C**         MOLPRO=8: Fit 4-dim energies from MOLPRO=7
+C**         MOLPRO=9: Generate 5-D HEG grids using input fitted HEG
+C**                   V(Q1,Q2,Q3,Q4) force field (IWHICH=0)
+C**         MOLPRO=10: Fit 5-dim energies from MOLPRO=9
+C**************************************************************************
+C**                   To produce grids from (and fits of) global potential,
+C**                   set IWHICH>0 (internal coordinates) for above steps
+C**************************************************************************
+C**         If MOLPRO>0: Fit potentials (terminate if ISCFCI < 0)
+C**         If MOLPRO<0: Interpolate potentials (terminate if ISCFCI < 0)
+C**************************************************************************
+C**                   To calculate vibrational energies using fitted potential
+C**                   in normal coordinates Y = gamma.Q set IWHICH<0, MOLPRO>0
+C**                   (see XTANPM below)
+C**                   To calculate vibrational energies using interpolated 
+C**                   potential in normal coordinates Q set IWHICH<0, MOLPRO<0
+C**                   To calculate vibrational energies using independently
+C**                   generated potential in normal coordinates Y = gamma.Q or
+C**                   Q set IWHICH<0, MOLPRO=0 (see USER.DOC)
+C**************************************************************************
+C**MOLINC:  HEG increment used in fits (1 OR 2 = all or alternate,respectively)
+
+C****************************************************************************
+C**XTANPM(NMODE)
+C---------------
+C**
+C**Omit data for this input if not fitting potentials (MOLPRO = 0) 
+C**AND not using fitted potentials (IWHICH = 0 or IWHICH > 0)
+C**
+C**XTANPM(I), I = 1,NMODE
+C**         For fitted potentials, the coordinate tanh(gamma.Q) is used.  
+C**         XTANPM sets the asymptotic value of the Gauss coordinates 
+C**         QMAX(MODE) such that GAMMA(MODE)*QMAX(MODE) = XTANPM(MODE)
+
+C****************************************************************************
+C**NCONT,NVAL1,NVAL2
+C-------------------
+C**
+C**Omit data for this input if SCF only (ISCFCI.LE.0)
+C**Omit data for this input if VSCF-CI (ICI > 0)
+C**Omit data for this input if unrestricted VCI (NMAX = 0)
+C**Omit data for this input if restricted VCI (NMAX > 0)
+C**
+C**NCONT:
+C**         If ICI<0: NCONT is number of contraction schemes (Maximum 2)
+C**         NCONT=+2:  Complete algorithm for 2 contraction schemes
+C**         NCONT=-2: Simplified algorithm for 2 contraction schemes
+C**         NCONT=+1 and NCONT=-1 both refer to the original (single-scheme)
+C**         algorithm
+C**NVAL1,NVAL2:
+C**         If ICI<0: NVAL1,NVAL2 are maximum number of contracted functions
+C**         from schemes 1 and 2 required in complete algorithm
+C**         NVAL1:  Number of functions required from contraction scheme 1
+C**         NVAL2:  Number of functions required from contraction scheme 2
+C**         NVALn>0:  Do all symmetries for contraction scheme 'n'
+C**         NVALn<0:  Do specific symmetries for contraction scheme 'n'
+C**
+C**         (Currently internal use only for NCONT > 0......use NCONT = -1 or
+C**         NCONT = -2)
+
+C****************************************************************************
+C**ICONT(NCONT),  JCONT(NCONT,ICONT(NCONT))
+C------------------------------------------
+C**
+C**Omit data for this input if SCF only (ISCFCI = 0)
+C**Omit data for this input if preliminary checks (ISCFCI < 0)
+C**Omit data for this input if VSCF-CI (ICI > 0)
+C**Omit data for this input if unrestricted VCI (NMAX = 0)
+C**Omit data for this input if restricted VCI (NMAX > 0)
+C**
+C**ICONT(I), (JCONT(I,J),J=1,ICONT(I))
+C**
+C**         Input one record for each contraction scheme I=1,NCONT
+C**ICONT:   Number of modes in contraction scheme NCONT
+C**JCONT:   Actual modes in contraction scheme NCONT
+
+C****************************************************************************
+C**MAXSUM(-NMAX,NCONT)
+C---------------------
+C**
+C**Omit data for this input if SCF only (ISCFCI = 0)
+C**Omit data for this input if preliminary checks (ISCFCI < 0)
+C**Omit data for this input if VSCF-CI (ICI > 0)
+C**Omit data for this input if unrestricted VCI (NMAX = 0)
+C**Omit data for this input if restricted VCI (NMAX > 0)
+C**
+C**(MAXSUM(I,K),I=1,-NMAX)
+C**
+C**         Input one record for each contraction scheme K=1,NCONT
+C**MAXSUM:  Maximum sum quanta in M-mode basis ... restricted only
+C**         Input single record of -NMAX integers (maximum 5)
+C**         for each contraction scheme K
+C**
+C**         MAXSUM(M,-NMAX) are defined as follows:
+C**         MAXSUM(1,K) is maximum sum quanta in one-mode basis sets
+C**         MAXSUM(2,K) is maximum sum quanta in two-mode basis sets
+C**         MAXSUM(3,K) is maximum sum quanta in three-mode basis sets
+C**         MAXSUM(4,K) is maximum sum quanta in four-mode basis sets
+C**         MAXSUM(5,K) is maximum sum quanta in five-mode basis sets
+
+C****************************************************************************
+C**MAXBAS(NMODE,-NMAX)
+C---------------------
+C**
+C**Omit data for this input if SCF only (ISCFCI = 0)
+C**Omit data for this input if preliminary checks (ISCFCI < 0)
+C**Omit data for this input if VSCF-CI (ICI > 0)
+C**Omit data for this input if unrestricted VCI (NMAX = 0)
+C**Omit data for this input if restricted VCI (NMAX > 0)
+C**
+C**(MAXBAS(M,I),M=1,NMODE)
+C**
+C**         Input one record for each I-mode basis I=1,-NMAX
+C**MAXBAS:  Defines selective quanta in VCI basis
+C**         Input -NMAX records (maximum 5) of NMODE integers
+C**
+C**         MAXBAS(M,1) is maximum quanta for mode M in one-mode basis sets
+C**         MAXBAS(M,2) is maximum quanta for mode M in two-mode basis sets
+C**         MAXBAS(M,3) is maximum quanta for mode M in three-mode basis sets
+C**         MAXBAS(M,4) is maximum quanta for mode M in four-mode basis sets
+C**         MAXBAS(M,5) is maximum quanta for mode M in five-mode basis sets
+
+C****************************************************************************
+C**MODINT(NMODE)
+C---------------
+C**
+C**(MODINT(M),M=1,NMODE)
+C**
+C**MODINT:    Integration factor (1 or 2) for NMODE modes
+C**MODINT=1:  Mode is totally symmetric (A1g)
+C**MODINT=2:  Mode is antisymmetric (B2g,B1g,A2g,A1u,B2u,B1u,A2u)
+
+C****************************************************************************
+C**MEFF(NMODE)
+C-------------
+C**
+C**(MEFF(M),M=1,NMODE)
+C**
+C**MEFF:      Corresponding mode forming effective 1-dim potential for
+C**           current mode.
+C**MEFF(M)=N  An effective 1-dim potential for mode M will be generated in
+C**           order to define the 1-dim basis.  The effective potential will
+C**           be with respect to mode N
+
+C****************************************************************************
+C**NCYCLE,TOLLAN,LANMAX,IGIV,LAN20
+C---------------------------------
+C**
+C**NCYCLE:  Number of Lanczos cycles (Lanczos ignored if NCYCLE=0)
+C**         NCYCLE>0: use LANCZA (less memory usage - more disc)
+C**         NCYCLE<0: use LANCZB (more memory usage - less disc)
+C**TOLLAN:  Tolerance for Lanczos eigenvalues
+C**LANMAX:  Maximum order of half-matrix used to build Lanczos matrix
+C**LGIV:    LGIV=0: Use QL algorithm in Lanczos
+C**         LGIV>0: Use GIVENS in Lanczos
+C**LAN20:   Size below which uses single disc file fort.20
+C**         If size exceeds LAN20, disc output spread over 5 discs to
+C**         avoid Linux 2GB problem
+C**         LAN20>0: create all Lanczos files and continue
+C**         LAN20<0: restart Lanczos diagonalisation using previous files
+C**
+C**         NB Restart for single VCI symmetry block only.....
+C**         .....job with LAN20 > 0 can be `killed' once message:
+C**         `Calculating Lanczos' is reached.
+
+C****************************************************************************
+C**NVSYM,NWSYM
+C-------------
+C**
+C**NVSYM:   Number of vibrational symmetry species (1 or 2 or 4 or 8)
+C**NWSYM:   Number of mode symmetry species
+C**         For no symmetry NVSYM=NWSYM=1 (C1)...can be used for molecules of 
+C**         any symmetry
+C**         For four-atom or larger Cs molecules NVSYM=NWSYM=2 (A',A")
+C**         For triatomic C2v molecules NVSYM=NWSYM=2 (A1,B2)
+C**         For four-atom C2v molecules NVSYM=4 (A1,B2,B1,A2), 
+C**         NWSYM=3 (A1,B2,B1)
+C**         For larger molecules, where reduction of symmetry to C2v is possible
+C**         NVSYM=4 (A1,B2,B1,A2), NWSYM=4 (A1,B2,B1,A2)
+C**         Where there is a centre of symmetry, C2v is converted to pseudo D2h
+C**         NVSYM=8 (A1g,B2g,B1g,A2g; A1u,B2u,B1u,A2u), NWSYM=1 -> 8
+
+C****************************************************************************
+C**NSYM(NWSYM),ISYM(NWSYM,NSYM(NWSYM))    (order of NWSYM:  A1,B2,B1,A2)
+C-----------------------------------------------------------------------
+C**
+C**NSYM(I), (ISYM(I,J),J=1,NSYM(I))
+C**
+C**         Input one record for each mode symmetry I=1,NWSYM
+C**         For triatomic C2v molecules, NWSYM=1 corresponds to A1, 
+C**         NWSYM=2 corresponds to B2
+C**         For four-atom C2V molecules, NWSYM=1 corresponds to A1, 
+C**         NWSYM=2 corresponds to B2, NWSYM=3 corresponds to B1
+C**         etc.
+C**         For D2h molecules, NWSYM=1 -> 4 are 'g'; NWSYM=5 -> 8 are 'u'
+C**         The user must know the symmetry of the Normal modes which are 
+C**         ordered either in increasing energy (see INORM=1), 
+C**         or according to the user's convention (see INORM=0)
+C**
+C**NSYM:    Number of modes of current (NWSYM) symmetry
+C**ISYM:    NSYM specific modes of current (NWSYM) symmetry
+C**
+C**         For example, in the case of H2O, there are 2 mode vibrations
+C**         of A1 symmetry (modes 1 and 2, say) corresponding to NWSYM=1.  
+C**         There is a single mode vibration of B2 symmetry (mode 3, say) 
+C**         corresponding to NWSYM=2.
+C**         Hence for NWSYM=1 (totally symmetric), the input required is:
+C**         NSYM=2,  ISYM(I)=1 2
+C**         For I=2, the input required is:
+C**         NSYM=1,  ISYM(I)=3
+
+C****************************************************************************
+C**MVSYM,MWSYM(MVSYM)     (order of MWSYM:  A1,B2,B1,A2)
+C-------------------------------------------------------
+C**
+C**MVSYM,(MWSYM(I),I=1,MVSYM)
+C**
+C**MVSYM:   Single integer corresponding to the number of actual vibrational 
+C**         (JMAX=0) or rovibrational (JMAX>0) symmetry species required 
+C**MWSYM:   MVSYM integers corresponding to the Specific vibrational (JMAX=0) 
+C**         or rovibrational (JMAX>0) symmetry species required
+C**
+C**         For J = 0 get vibrational energies of specified symmetry.  
+C**         For J > 0 all vibrational symmetries are included in K-blocks, but 
+C**         final rovibrational calculations are done for symmetries specified.
+C**
+C**Note:    For a triatomic molecule, the number of possible rovibrational
+C**         species is twice the number of possible vibrational species
+
+C****************************************************************************
+C**IDUMP,MDUMP,LDUMP
+C-------------------
+C**
+C**Omit data for this input if SCF only (ISCFCI = 0)
+C**Omit data for this input if preliminary checks (ISCFCI < 0)
+C**Omit data for this input if VSCF-CI (ICI > 0)
+C**
+C**IDUMP:  Number of J=0 VCI functions written to disc (ICI < 0)
+C**        IDUMP>0: IDUMP consecutive functions for each symmetry
+C**        IDUMP<0: NDUMP(IABS(IDUMP)) specific functions for each symmetry
+C**MDUMP:  Number of (central) grid points used to generate Eckart frame
+C**        MDUMP>0: program continues with VCI
+C**        MDUMP<0: program halts after generating required points
+C**LDUMP:  Restart parameter for property fuunctions
+C**        Currently the following single property is supported:
+C**        LDUMP=1: input dipole functions and evaluate J=0 matrix elements
+
+C****************************************************************************
+C**NDUMP(-IDUMP,NVSYM)
+C---------------------
+C**
+C**(NDUMP(I,NVSYM),I=1,-IDUMP)
+C**
+C**        Input only if IDUMP < 0
+C**        Input NVSYM records of -IDUMP function numbers
+C**NDUMP:  -IDUMP specific functions for symmetry species NVSYM to dump to disc
+C**        Function numbers are those given in the J=0 output on fort.2
+
+C****************************************************************************
+C**NBF(NMODE),MBF(NMODE),NVF(NMODE)
+C----------------------------------
+C**
+C**         Input NMODE records of three integers
+C**NBF(K):  Number of quanta in harmonic-oscillator basis for mode K
+C**MBF(K):  Number of Gauss Hermite integration points for mode K
+C**NVF(K):  Number of quanta of contracted numerical functions for mode K
+C**Note:       For VCI (ICI < 0) NVF(K) will be overwritten by -ICI or by the
+C**            maximum quantum within MAXBAS, depending on the setting of NMAX
+
+C****************************************************************************
+C**SYMBOL(NATOM)
+C--------------
+C**
+C**(SYMBOL(I),I=1,NATOM)
+C**
+C**SYMBOL:  Nuclear Atomic Symbol (H for hydrogen, etc.) in A2 FORMAT
+
+C****************************************************************************
+C**NDEF
+C------
+C**
+C**         SCF state definition
+C**
+C**
+C**Read data for this input ONLY if NSTAT > 0
+C**         NSTAT>0 and NDEF<0:  
+C**         Input NSTAT records ISTAT(NSTAT,NMODE) corresponding to NSTAT
+C**         specific SCF state definitions (see Jelski et al in
+C**         J. Comput. Chem., 17, 1645 (1996)).
+C**
+C**         NSTAT>0 and NDEF=0 or NDEF>0:  
+C**         Input NSTAT records N1 N2 where N1 are the number of quanta for 
+C**         mode N2
+C**         All remaining modes will take on NDEF quanta (see Jelski et al)
+C**
+C**         NSTAT<0:
+C**         Input NOTHING. In this case NDEF is a dummy parameter.  
+C**         It is recommended that NSTAT<0 is set for all VCI calculations 
+C**         (see ICI -ve above)
+
+C****************************************************************************
+C**NPOT
+C------
+C**
+C**Read data for this input ONLY for Normal Coordinate Potential (IWHICH=0)
+C**NPOT:    Number of user-supplied Normal coordinate force field terms
+C**         IPOT,JPOT,CPOT (below).
+
+C****************************************************************************
+C**IPOT(NPOT),JPOT(NPOT),CPOT(NPOT) 
+C----------------------------------
+C**
+C**Read data for this input EITHER for Normal Coordinate Potential (IWHICH=0)
+C**OR for definition of NMODE values of user-supplied values of omega (INORM=0)
+C**         Normal coordinate force field, defined by:
+C**         Jelski et al in J. Comput. Chem., 17, 1645 (1996).  
+C**         A maximum of 6 coupled modes is allowed.
+C**IPOT:    (first 6 integers): defines the Normal mode(s) involved.
+C**JPOT:    (second 6 integers): defines the number of quanta in the 
+C**         corresponding mode(s)
+C**CPOT:    defines the potential contribution F(ijkl..) in hartrees
+C**
+C**These parameters are input under the following conditions:
+C**IWHICH=0: Input NPOT terms IPOT,JPOT,CPOT where the first NMODE terms are the
+C**          NMODE harmonic force constants F(ii)
+C**IWHICH>0: Input NMODE terms corresponding to the NMODE harmonic force
+C**          constants F(ii) if INORM=0
+C**          Input NOTHING if INORM=1
+C**
+C**Note:     F(ii) is omega(i) in cm-1
+
+C****************************************************************************
+C**XM(NATOM)
+C-----------
+C**
+C**(XM(I),I=1,NATOM)
+C**XM:      Nuclear masses (U)
+
+C****************************************************************************
+C**X0(NATOM,3)
+C-------------
+C**
+C**(X0(NATOM,I),I=1,3)
+C**X0:      Input NATOM records of reference structure x,y,z coordinates
+
+C****************************************************************************
+C**XL(NATOM,NMODE,3)
+C-------------------
+C**
+C**Omit data for this input for automatic evaluation of Normal Coordinates 
+C**(INORM>0 or INORM<0)
+C**
+C**XL(NATOM,NMODE,I),   I=1,3
+C**         Mass-weighted Normal Coordinate displacement vectors
+C**XL:      Input NMODE groups of NATOM records of x,y,z mass-weighted Normal
+C**         Coordinate displacements (INORM=0)
+
+C****************************************************************************
+C**USER-DEFINED POTENTIAL
+C**At this point, control passes to the user to input any data he requires in 
+C**the routine USERIN (see USER.DOC)
+

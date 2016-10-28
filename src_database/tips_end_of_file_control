@@ -1,0 +1,18 @@
+do
+     read(21,*,iostat=ierr) natm
+     if (ierr < 0) exit
+     n = n + 1
+     read(21,*) pot0
+     do i=1,natm
+        read(21,*) symb(i),xx(:,i)
+     end do
+     xx=xx/auang
+
+     pot=f(xx) ! Calculate the potential
+     diff = abs(pot-pot0)*aucm
+     write(22,'(2F15.8,F13.2)') pot0,pot,diff
+
+     rms=rms+(pot0-pot)**2
+
+  end do
+

@@ -1,0 +1,5 @@
+In order to test run MM
+compile all .f files using script.
+remebeber to use -c flag so that just compile file but not link
+If you choose use script, then the out put file will be able to run already. Put the input file and run file in the same dir with the format
+./mm.x input output

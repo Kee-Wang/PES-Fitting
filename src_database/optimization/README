@@ -1,0 +1,7 @@
+Optimization using Newton's method.
+
+./xopt.x  $input_file  0/1/2...
+0: to optimize a minimum
+1: to optimize a first-order saddle point
+2: to optimize a second-order saddle point
+so on so forth

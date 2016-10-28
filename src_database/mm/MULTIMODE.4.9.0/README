@@ -1,0 +1,96 @@
+MULTIMODE Version 4.9 Release 0
+-------------------------------
+
+MULTIMODE Version 4.9 will be issued in a series of releases.  Release 0 is 
+contained in the current routines.
+
+MULTIMODE Version 4.9.0 consists of:
+blas.vscf.3.4.f
+contr.vscf.4.9.0.f
+curve.vscf.4.9.0.f
+diag.vscf.4.9.0.f
+drive.vscf.4.9.0.f
+eckart.vscf.4.9.0.f
+lanczos.vscf.4.9.0.f
+lap.vscf.3.4.f
+lib.vscf.3.4.f
+matinv.vscf.2.3.f
+memo.vscf.4.9.f
+molpro.vscf.4.9.0.f
+normal.vscf.4.9.0.f
+projec.vscf.4.9.0.f
+prop.vscf.4.9.0.f
+react.vscf.abinitio.f
+react.vscf.eckart.f
+react.vscf.noneckart.f
+rot.vscf.4.9.0.f
+timit.vscf.2.3.f
+user.vscf.4.9.0.f
+vib.vscf.4.9.0.f
+
+and the two directories DOCS and TESTS.  Directory DOCS consists of Manual
+updates from MULTIMODE Version 3.4 issued earlier.  Directory TESTS is further
+sub-divided into directories FURAN, H2CS, HOOH, MOLPRO, RPH containing test
+input/output relating to specific features of MULTIMODE Version 4.9.0.  There 
+are no external library routines required with MULTIMODE Version 4.9.0, but the
+libraries 'blas' and 'lapack' can be replaced as required.
+
+On most computers, compilation can be carried out with -O2 optimisation:
+f77 -O2 -c XXXX.f;  however, on some SGI machines, -O1 should be used for
+memo.vscf.4.9.f.  If -O2 has been used, and the results appear spurious,
+first try the -O1 option for this module.  Users of Portland pgf77 or pgf90
+will also find it necessary to use -O1 for lap.vscf.3.4.f if using the Reaction
+Path facility.  There appear to be no problems if the standard 'lapack'
+library is used.
+
+An online Manual to MULTIMODE Version 4.9.0 is also supplied in three parts:
+
+1...USER.DOC explains how the user must update the modules
+memo.vscf.4.9.f, user.vscf.4.9.0.f and the potential routines (supplied here
+as user.FURAN.f, user.H2CS.f, user.HOOH.f, user.CH3OH.f) for his personal use.
+
+2...INPUT.DOC is a detailed description of the input data
+
+3...GUIDE.DOC is a general description of the program with special reference to
+new features within MULTIMODE Version 4.9.0, and to a series of test programs.
+
+MULTIMODE Version 4.9.0 also comes with a variety of test input/output
+files for use with supplied user-routines user.XXXX.f.  Each fort.1
+file has been appended with the required 'user potential' required for the
+particular test.
+
+The tests are in the directories listed above, which also contain all potential
+routines required to carry out the tests.  It is recommended that these
+tests are first performed with the supplied data, by which time it should be 
+clear to the user how to construct his or her own input files.
+
+*****************************
+IMPORTANT ------DECLARATION
+*****************************
+
+MULTIMODE Version 4.9.0 is subject to Copyright, and is for use only by the
+group (or groups) to which it is supplied.  It must not be distributed to
+groups outside the Institution from which the order was placed.  Any changes
+made by the user should be communicated to us at the e-mail address given 
+below.  Failure to do this may render the user forfeit to any subsequent 
+maintenance/support.  I would be obliged if any new users of MULTIMODE  would 
+confirm by e-mail that they are willing to abide by this condition of sale.
+
+Any publication that results from the use of MULTIMODE must contain a
+suitable reference:
+
+  
+  'MULTIMODE' is a variational code for the calculation of rovibrational
+  energies of large polyatomic molecules; written by S. Carter,
+  with contributions from B.J. Braams, J.M. Bowman and N.C. Handy;
+  Refs (a) S. Carter, S. J. Culik and J. M. Bowman, J. Chem. Phys. 107, 10458
+  (1997); (b) S. Carter and J. M. Bowman, J. Chem. Phys. 108, 4397 (1998);
+  (c) S. Carter, J. M. Bowman, and N. Handy, Theoretical Chem. Accnts. 100,
+  191 (1998); (d) S. Carter and N.C. Handy, J. Chem. Phys. 113, 987 (2000);
+  (e) R. Burcl, S. Carter and N.C. Handy, Chem. Phys. Lett. 380, 237 (2003)
+  
+  
+Please send all enquiries to:
+
+s.carter@reading.ac.uk
+

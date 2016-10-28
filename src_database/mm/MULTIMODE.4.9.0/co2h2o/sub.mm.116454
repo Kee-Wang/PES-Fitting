@@ -1,0 +1,38 @@
+job id:         116454.macronode.chem.emory.edu
+input file:     fort.1 mm
+exicutalbe for mm: mm.x
+job starts at:  Fri Jul 8 15:16:51 EDT 2016
+submitted from: macronode.chem.emory.edu
+submitted to:  
+node2
+
+./mm.x
+ Principal data directory: ./coef/
+ Expected data: 
+ x1 y1 z1 x2 x1y1 y2 x1z1 y1z1 x3 x2y1 x1y2 x2z1 x1y1z1 y2z1 x3y1 x2y2 x3z1 x2y1
+ z1 x1y2z1 x3y2 x3y1z1 x2y2z1 x3y2z1
+  reading pcf-x1.dat
+  reading pcf-y1.dat
+  reading pcf-z1.dat
+  reading pcf-x2.dat
+  reading pcf-x1y1.dat
+  reading pcf-y2.dat
+  reading pcf-x1z1.dat
+  reading pcf-y1z1.dat
+  reading pcf-x3.dat
+  reading pcf-x2y1.dat
+  reading pcf-x1y2.dat
+  reading pcf-x2z1.dat
+  reading pcf-x1y1z1.dat
+  reading pcf-y2z1.dat
+  reading pcf-x3y1.dat
+  reading pcf-x2y2.dat
+  reading pcf-x3z1.dat
+  reading pcf-x2y1z1.dat
+  reading pcf-x1y2z1.dat
+  reading pcf-x3y2.dat
+  reading pcf-x3y1z1.dat
+  reading pcf-x2y2z1.dat
+  reading pcf-x3y2z1.dat
+END OF MULTIMODE
+job ends at:    Fri Jul 8 17:31:20 EDT 2016

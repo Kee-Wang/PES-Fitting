@@ -1,0 +1,18 @@
+Files:
+
+xdmd.f90:   dmd code
+xpes.f90:  routines for hooking into molpro
+ext_mpeg.pl:  Get energies and gradients from punch file.  Note that the atom labels must be inserted in order at the top of this file.
+ext_mpsp.pl:  Get energies from punch file.  Note that the atom labels must be inserted in order at the top of this file.
+mp_eg.tmp:  A template molpro input file for computing energies and gradients.  Modify as needed.
+mp_sp.tmp:  A template molpro input file for computing energies.  Modify as needed.
+*.int:  Input file. First line is a header.
+dmd.x: executable
+
+Jobs can be run interactively with the command:
+		dmd.x h3o-c2v-1.int #traj #steps #torecord seed1 seed2
+	this will create (among others) *.eng, *.gem, *.xyz 
+	which contain the energies and geometries of every #torecord step.
+        The variables seed1 and seed2 represent integers that will be used to initiate
+	the fortran random number generator.
+

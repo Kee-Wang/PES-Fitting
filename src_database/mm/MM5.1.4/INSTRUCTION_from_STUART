@@ -1,0 +1,22 @@
+Dear Xiaohong
+
+I have sent the latest MM5.1.4 to 'bowman8' under user 'carter' in directory:
+STUART/MM5.1.4.    You must only use files *.f and NEVER any *.F files.
+Also there are two further directories /C2H4 and /METHANOL which contain
+everything to repeat my largest tests (.....INC=10).   The input files 'fort.1.VCI.PERT'
+in each directory are for the largest tests.   You will notice two changes to the input.
+NBF,MBF,NVF,MVF replaces NBF,MBF,NVF.   The new parameter MVF is the number
+of HEG points required (I have merely substituted MVF for the number calculated by
+the original algorithm).  The new Lanczos parameter LANINC is the number of equal 'chunks'
+required to calculate the rectangular matrix B (please ask Joel to run through my notes
+with you to explain the matrices A,B,B',C' as I no longer have them).
+
+The idea of the new method is to do Lanczos + perturbation theory more efficiently, by
+only calculating what is finally required.   In this way, matrices order 3,000,000 can be
+done in these tests since the final matrices are only order 30,000 or so.
+
+There is still a small problem but this can be overcome by ensuring that LAN20 is always
+less than the size of the 1- and 2- mode matrix.
+
+Happy diagonalising!
+Stuart

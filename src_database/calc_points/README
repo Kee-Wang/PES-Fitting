@@ -1,0 +1,9 @@
+In generate.f90:
+MOLPRO is called by "call system('/usr/local/bin/molprop_2010_1_Linux_x86_64_i8 -n 4 mp.inp')".
+
+To submit the job:
+(1) In que.pts, change ndata to the number of points in this batch;
+(2) qsub que.pts
+
+fort.11, input, contains the xyz coordinates
+fort.21, output, 

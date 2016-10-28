@@ -1,0 +1,15 @@
+*** co2h2o
+
+memory,100,m
+
+basis avtz
+
+geomtype = xyz
+
+geometry = {
+6
+
+}
+hf
+ccsd(t)-f12
+---

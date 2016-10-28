@@ -1,0 +1,4 @@
+First wirte any script using vi.
+Then save the file end wit .f90 or .f95
+Then use comman "gfortran name.f95" to compile to generate a a.out file.
+To excute a.out file, simply use "./a.out"

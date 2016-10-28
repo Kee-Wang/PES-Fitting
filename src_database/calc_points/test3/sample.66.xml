@@ -1,0 +1,327 @@
+<?xml version="1.0"?>
+<molpro xmlns="http://www.molpro.net/schema/molpro2006"
+  xmlns:xsd="http://www.w3.org/1999/XMLSchema"
+  xmlns:cml="http://www.xml-cml.org/schema/cml2/core"
+  xmlns:stm="http://www.xml-cml.org/schema/stmml"
+  xmlns:xhtml="http://www.w3.org/1999/xhtml">
+ <!--
+
+ Primary working directories    : /scratch/kee
+ Secondary working directories  : /scratch/kee
+ Wavefunction directory         : /home/kee/wfu/
+ Main file repository           : /scratch/kee/
+
+ ARCHNAME  : Linux/x86_64
+ FC        : /opt/intel/composer_xe_2015.0.090/bin/intel64/ifort
+ FCVERSION : 15.0.0
+ BLASLIB   : -L/opt/intel/mkl/lib/intel64 -lmkl_intel_ilp64 -lmkl_sequential -lmkl_core
+ id        : emory
+
+ Nodes     nprocs
+ node3        3
+ Number of processes for MPI-2 version of Molpro:   nprocs(total)=    4   nprocs(compute)=    3   nprocs(helper)=    1
+ ga_uses_ma=false, calling ma_init with nominal heap.
+ GA-space will be limited to   8.0 MW (determined by -G option)
+
+ Using customized tuning parameters: mindgm=7; mindgv=32; mindgc=1; mindgr=1; noblas=0; mincuda=1000; minvec=7
+ default implementation of scratch files=sf  
+
+ --><job>
+  <!--
+ ***,co2h2o
+  
+ memory,100,m
+  
+ basis avtz
+  
+ geomtype = xyz
+  
+ geometry = {
+ 6
+ 6
+ C      0.78650152     0.01525217     0.00506280
+ O      0.72364453     1.21666064    -0.00183734
+ O      0.87791039    -1.16763998    -0.00181145
+ O     -1.88165962    -0.05743955    -0.00091176
+ H     -2.41152871     0.74770154     0.00634288
+ H     -2.50775093    -0.79569245     0.00575455
+ }
+ hf
+  
+ ---
+
+ Variables initialized (665), CPU time= 0.00 sec
+ Commands  initialized (462), CPU time= 0.01 sec, 486 directives.
+ Default parameters read. Elapsed time= 0.03 sec
+
+ Checking input...
+ Passed
+1
+
+
+                                         ***  PROGRAM SYSTEM MOLPRO  ***
+                         Copyright, University College Cardiff Consultants Limited, 2008
+
+                                    Version 2010.1 linked 9 Dec 2014 15:06:28 
+
+
+ **********************************************************************************************************************************
+ LABEL *   co2h2o                                                                        
+ Linux-2.6.32-504.el6.x86_64/node3(x86_64) 64 bit mpp version                            DATE: 25-Mar-16          TIME: 00:13:30  
+ **********************************************************************************************************************************
+
+ Patch level:      19
+ **********************************************************************************************************************************
+  -->
+  <!--
+
+ Variable memory set to  100000000 words,  buffer space   230000 words
+
+ SETTING BASIS          =    AVTZ
+ SETTING GEOMTYPE       =    XYZ
+
+Geometry recognized as XYZ
+
+  --><jobstep command="HF-SCF" commandset="SCFPRO">
+   <!--
+
+
+ Recomputing integrals since basis changed
+
+
+ Using spherical harmonics
+
+ Library entry C      S aug-cc-pVTZ          selected for orbital group  1
+ Library entry C      P aug-cc-pVTZ          selected for orbital group  1
+ Library entry C      D aug-cc-pVTZ          selected for orbital group  1
+ Library entry C      F aug-cc-pVTZ          selected for orbital group  1
+ Library entry O      S aug-cc-pVTZ          selected for orbital group  2
+ Library entry O      P aug-cc-pVTZ          selected for orbital group  2
+ Library entry O      D aug-cc-pVTZ          selected for orbital group  2
+ Library entry O      F aug-cc-pVTZ          selected for orbital group  2
+ Library entry H      S aug-cc-pVTZ          selected for orbital group  3
+ Library entry H      P aug-cc-pVTZ          selected for orbital group  3
+ Library entry H      D aug-cc-pVTZ          selected for orbital group  3
+
+1PROGRAM * SEWARD (Integral evaluation for generally contracted gaussian basis sets)     Author: Roland Lindh, 1990
+
+ Geometry written to block  1 of record 700
+
+
+ Point group  C1  
+
+
+   --><cml:symmetry pointGroup="C1"/><!--
+   --><cml:atomArray>
+    <cml:atom id="1" elementType="C" x3="0.78650152" y3="0.1525217E-01" z3="0.50628E-02"/>
+    <cml:atom id="2" elementType="O" x3="0.72364453" y3="1.21666064" z3="-0.183734E-02"/>
+    <cml:atom id="3" elementType="O" x3="0.87791039" y3="-1.16763998" z3="-0.181145E-02"/>
+    <cml:atom id="4" elementType="O" x3="-1.88165962" y3="-0.5743955E-01" z3="-0.91176E-03"/>
+    <cml:atom id="5" elementType="H" x3="-2.41152871" y3="0.74770154" z3="0.634288E-02"/>
+    <cml:atom id="6" elementType="H" x3="-2.50775093" y3="-0.79569245" z3="0.575455E-02"/>
+   </cml:atomArray><!--
+   --><cml:bondArray>
+    <cml:bond atomRefs2="1 2"/>
+    <cml:bond atomRefs2="1 3"/>
+    <cml:bond atomRefs2="4 5"/>
+    <cml:bond atomRefs2="4 6"/>
+   </cml:bondArray><!--
+
+ ATOMIC COORDINATES
+
+ NR  ATOM    CHARGE       X              Y              Z
+
+   1  C       6.00    1.486272475    0.028822424    0.009567305
+   2  O       8.00    1.367489978    2.299155404   -0.003472069
+   3  O       8.00    1.659010205   -2.206519782   -0.003423144
+   4  O       8.00   -3.555821354   -0.108545019   -0.001722977
+   5  H       1.00   -4.557128820    1.412951139    0.011986306
+   6  H       1.00   -4.738962464   -1.503640815    0.010874524
+
+ Bond lengths in Bohr (Angstrom)
+
+ 1-2  2.273475566  1-3  2.242044124  4-5  1.821470599  4-6  1.829282336
+     (1.203071455)     (1.186438652)     (0.963880728)     (0.968014521)
+
+ Bond angles
+
+  2-1-3  178.43038721   5-4-6  106.34650037
+
+ NUCLEAR CHARGE:                   32
+ NUMBER OF PRIMITIVE AOS:         322
+ NUMBER OF SYMMETRY AOS:          282
+ NUMBER OF CONTRACTIONS:          230   ( 230A   )
+ NUMBER OF CORE ORBITALS:           4   (   4A   )
+ NUMBER OF VALENCE ORBITALS:       18   (  18A   )
+
+
+ NUCLEAR REPULSION ENERGY  105.09040220
+
+
+ Eigenvalues of metric
+
+         1 0.239E-03 0.263E-03 0.311E-03 0.346E-03 0.647E-03 0.889E-03 0.971E-03 0.152E-02
+
+
+ Contracted 2-electron integrals neglected if value below      1.0D-11
+ AO integral compression algorithm  1   Integral accuracy      1.0D-11
+
+     1310.982 MB (compressed) written to integral file ( 40.1%)
+
+     Node minimum: 403.964 MB, node maximum: 471.335 MB
+
+
+ NUMBER OF SORTED TWO-ELECTRON INTEGRALS:  117629820.     BUFFER LENGTH:  32768
+ NUMBER OF SEGMENTS:   8  SEGMENT LENGTH:   15997437      RECORD LENGTH: 524288
+
+ Memory used in sort:      16.55 MW
+
+ SORT1 READ   408904881. AND WROTE   106652731. INTEGRALS IN    311 RECORDS. CPU TIME:     7.29 SEC, REAL TIME:     8.40 SEC
+ SORT2 READ   319149855. AND WROTE   352862895. INTEGRALS IN   5394 RECORDS. CPU TIME:     1.80 SEC, REAL TIME:     2.64 SEC
+
+ Node minimum:   117612110.  Node maximum:   117629820. integrals
+
+ OPERATOR DM      FOR CENTER  0  COORDINATES:    0.000000    0.000000    0.000000
+
+
+ **********************************************************************************************************************************
+ DATASETS  * FILE   NREC   LENGTH (MB)   RECORD NAMES
+              1      18        4.62       500      610      700      900      950      970     1000      129      960     1100   
+                                          VAR    BASINP    GEOM    SYMINP    ZMAT    AOBASIS   BASIS     P2S    ABASIS      S 
+                                         1400     1410     1200     1210     1080     1600     1650     1700   
+                                           T        V       H0       H01     AOSYM     SMH    MOLCAS    OPER   
+
+ PROGRAMS   *        TOTAL       INT
+ CPU TIMES  *        14.52     14.46
+ REAL TIME  *        16.79 SEC
+ DISK USED  *         5.12 GB      
+ GA USED    *         0.00 MB       (max)       0.00 MB       (current)
+ **********************************************************************************************************************************
+
+1PROGRAM * RHF-SCF (CLOSED SHELL)       Authors: W. Meyer, H.-J. Werner
+
+
+ NUMBER OF ELECTRONS:      16+   16-    SPACE SYMMETRY=1    SPIN SYMMETRY=Singlet 
+ CONVERGENCE THRESHOLDS:    1.00E-05 (Density)    1.00E-07 (Energy)
+ MAX. NUMBER OF ITERATIONS:       60
+ INTERPOLATION TYPE:            DIIS
+ INTERPOLATION STEPS:              2 (START)      1 (STEP)
+ LEVEL SHIFTS:                  0.00 (CLOSED)  0.00 (OPEN) 
+
+
+
+ Orbital guess generated from atomic densities. Full valence occupancy:   22
+
+ Molecular orbital dump at record        2100.2
+
+ ITERATION    DDIFF          GRAD             ENERGY        2-EL.EN.            DIPOLE MOMENTS         DIIS
+    1      0.000D+00      0.000D+00      -263.64771937    406.641935   -1.21610   -0.01409    0.03421    0
+    2      0.000D+00      0.471D-02      -263.71166142    401.971788   -0.90221    0.00383    0.00973    1
+    3      0.767D-02      0.329D-02      -263.75899119    404.476841   -0.94606   -0.01767    0.01856    2
+    4      0.323D-02      0.351D-03      -263.75963788    404.328767   -0.94609   -0.00871    0.01817    3
+    5      0.414D-03      0.114D-03      -263.75973126    404.287600   -0.93897   -0.01462    0.01811    4
+    6      0.171D-03      0.469D-04      -263.75974489    404.313370   -0.93972   -0.01173    0.01805    5
+    7      0.610D-04      0.111D-04      -263.75974621    404.304557   -0.93924   -0.01335    0.01805    6
+    8      0.214D-04      0.413D-05      -263.75974633    404.304828   -0.93930   -0.01240    0.01805    7
+    9      0.594D-05      0.167D-05      -263.75974635    404.305660   -0.93931   -0.01274    0.01805    8
+   10      0.259D-05      0.522D-06      -263.75974635    404.305390   -0.93930   -0.01268    0.01805    0
+
+ Final occupancy:  16
+
+ !RHF STATE 1.1 Energy               -263.759746354984
+   --><property name="Energy" method="RHF" principal="true" stateSymmetry="1" stateNumber="1"
+     value="-263.759746354984"/><!--
+ Nuclear energy                       105.09040220
+ One-electron energy                 -571.00284331
+ Two-electron energy                  202.15269476
+ Virial quotient                       -1.00296466
+ !RHF STATE 1.1 Dipole moment          -0.93929761    -0.01268073     0.01804835
+ Dipole moment /Debye                  -2.38730002    -0.03222910     0.04587134
+   --><property name="Dipole moment" method="RHF" principal="true" stateSymmetry="1"
+     stateNumber="1"
+     value="-0.939297609323718 -0.126807330637068E-01 0.180483547620059E-01"/><!--
+
+ Orbital energies:
+
+         1.1          2.1          3.1          4.1          5.1          6.1          7.1          8.1          9.1         10.1
+    -20.638923   -20.633896   -20.580618   -11.458177    -1.490549    -1.436038    -1.362465    -0.782952    -0.730429    -0.715259
+
+        11.1         12.1         13.1         14.1         15.1         16.1         17.1         18.1
+     -0.684791    -0.678591    -0.590991    -0.524065    -0.521026    -0.519957     0.024928     0.047625
+
+
+ **********************************************************************************************************************************
+ DATASETS  * FILE   NREC   LENGTH (MB)   RECORD NAMES
+              1      18        4.62       500      610      700      900      950      970     1000      129      960     1100   
+                                          VAR    BASINP    GEOM    SYMINP    ZMAT    AOBASIS   BASIS     P2S    ABASIS      S 
+                                         1400     1410     1200     1210     1080     1600     1650     1700   
+                                           T        V       H0       H01     AOSYM     SMH    MOLCAS    OPER   
+
+              2       3        1.44       700     1000     2100   
+                                         GEOM     BASIS     RHF  
+
+ PROGRAMS   *        TOTAL        HF       INT
+ CPU TIMES  *        28.61     14.09     14.46
+ REAL TIME  *        33.94 SEC
+ DISK USED  *         5.15 GB      
+ SF USED    *         0.21 MB      
+ GA USED    *         0.00 MB       (max)       0.00 MB       (current)
+ **********************************************************************************************************************************
+   -->
+   <time start="00:13:30" end="00:14:04" cpu="28.61" system="2.97" real="33.94"/>
+   <storage units="megabyte" memory="801.84" sf="0.21" df="35.76" eaf="5115.38" ga="0.0"/>
+  </jobstep><!--
+
+        HF-SCF  
+   -263.75974635
+ **********************************************************************************************************************************
+ Variable memory released
+  --><stm:metadataList>
+   <stm:metadata name="dc:date" content="2016-03-25T00:14:04-04:00"/>
+   <stm:metadata name="dc:creator" content="kee"/>
+   <stm:metadata name="dc:title" content="co2h2o"/>
+   <stm:metadata name="cmlm:insilico" content="Molpro">
+    <version major="2010" minor="1" patch_level="19" integer_bits="64" parallelism="mpp">
+     2010.1
+     <date year="2016" month="3" day="25" hour="0" minute="13" second="30">
+      2016-03-25T00:13:30
+     </date>
+    </version>
+    <licence id="emory"/>
+    <parallel processes="3" nodes="1" all_processes="3" openmp="1"/>
+    <machine hostname="node3" architecture="x86_64">
+     Linux-2.6.32-504.el6.x86_64/node3(x86_64) 64 bit mpp version
+     <sysinfo name="cpu MHz" content="2401.000"/>
+     <sysinfo name="MemTotal" content="132048856 kB"/>
+     <sysinfo name="vendor_id" content="GenuineIntel"/>
+     <sysinfo name="cpu family" content="6"/>
+     <sysinfo name="model name" content="Intel(R) Xeon(R) CPU E5-2630 v3 @ 2.40GHz"/>
+     <sysinfo name="flags"
+       content="fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc arch_perfmon pebs bts rep_good xtopology nonstop_tsc aperfmperf pni pclmulqdq dtes64 monitor ds_cpl vmx smx est tm2 ssse3 fma cx16 xtpr pdcm pcid dca sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer xsave avx f16c rdrand lahf_lm abm ida arat epb xsaveopt pln pts dts tpr_shadow vnmi flexpriority ept vpid fsgsbase bmi1 avx2 smep bmi2 erms invpcid"/>
+     <sysinfo name="MemTotal" content="132048856 kB"/>
+     <sysinfo name="cache size" content="20480 KB"/>
+     <sysinfo name="ncpu" content="32"/>
+    </machine>
+   </stm:metadata>
+  </stm:metadataList><!--
+  -->
+  <input>
+   <p> ***,co2h2o </p>
+   <p> memory,100,m </p>
+   <p> basis avtz </p>
+   <p> geomtype = xyz </p>
+   <p> geometry = { </p>
+   <p> 6 </p>
+   <p> 6 </p>
+   <p> C      0.78650152     0.01525217     0.00506280 </p>
+   <p> O      0.72364453     1.21666064    -0.00183734 </p>
+   <p> O      0.87791039    -1.16763998    -0.00181145 </p>
+   <p> O     -1.88165962    -0.05743955    -0.00091176 </p>
+   <p> H     -2.41152871     0.74770154     0.00634288 </p>
+   <p> H     -2.50775093    -0.79569245     0.00575455 </p>
+   <p> } </p>
+   <p> hf </p>
+  </input>
+  <!--
+ --></job><!--
+--></molpro>

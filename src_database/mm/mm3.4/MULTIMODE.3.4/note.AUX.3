@@ -1,0 +1,48 @@
+
+Test AUX.3
+----------
+Tests the facility to search for the minimum of the potential.
+
+Key input parameters
+--------------------
+MCHECK < 0 forces `multimode' along the required route.
+ISCFCI < 0 terminates `multimode' on completion of the minimum search.
+
+Remarks
+-------
+For many molecules, the precise equilibrium geometry (potential minimum) may
+not be known exactly.  The closer the input equilibrium geometry is to the
+true minimum of the potential, the more accurate will be the results produced
+by `multimode'.  The parameter MCHECK can be used to determine the required
+coordinates.
+
+AUX.3 is a test in 3 parts.
+Part (a) is the starting position.  For the initial (trial) geometry, the
+Normal Modes are produced (INORM > 0), and the Gauss quadrature points and
+optimised HEG quadrature points are determined (see the Manual for NBF, MBF,
+NVF).  The potential along each Normal Mode is inpected, in turn, and the
+potential is fit to a quadratic polynomial, using the three central quadrature
+points, from which the position of the minimum is found.  The minimum is 
+shifted to Q = 0 (the minimum is defined such that all Q = 0).  The process is 
+repeated with a cubic, quartic, pentic,... polynomial until all of the 
+integration points are exhausted.  The principal axes associated with this
+search are output by `multimode'.
+Part (b) continues with the principal axes produced in part (a), as the
+exact minimum was not quite found with the choice of integration points.
+Part (c) does an SCF run (ISCFCI = 0) using the exact minimum of the potential
+found in part (b), when it is now no longer necessary to search for the
+potential minimum (MCHECK = 0).
+
+In keeping with all AUX examples, ISCFCI < 0 is used to terminate `multimode'
+after completion of the required procedure.  To continue with the correct
+coordinates, set ISCFCI = 0 (for SCF) or > 0 (for CI), EITHER with the
+most recent principle axis geometry given in the output from AUX.3 and with 
+MCHECK = 0, OR with the previous input geometry to AUX.3 and with MCHECK < 0.
+
+If symmetry exists, it is important that coordinates whose absolute values
+should be equal are, in fact input such that this requirement is satisfied.
+In most cases, this will entail modifying the last few digits in those given
+by `multimode' in the transformed coordinates to cancel rounding errors.  In
+this case, it will ultimately be necessary to continue the calculations with 
+MCHECK = 0, as in case (c).
+

@@ -1,0 +1,21 @@
+#natm,time_step,kine,Eh, bond length
+  6    2.5    40000.0   -115.57494300   20
+  -115.574946
+C    0.000000000    0.000000000    0.000000000
+O    1.468980683    0.000000000    0.000000000
+H    1.769483813    0.000000000    0.910327203
+H   -0.315021085    0.000000000   -1.042859438
+H   -0.408997790    0.893029568    0.485940976
+H   -0.408997790   -0.893029568    0.485940976
+
+# Input file description.
+# First line:
+#  7 is number of atoms
+#  5 is time step in a.u.
+#  35000 is Total kinetic energy (including zpe) in wave numbers
+#  -153.6007074654863 is minimum of potential energy surface in hartree
+#  12 is the bond length used to stop trajectories
+
+# Second line is potential energy of the configuration, but it is not used by the code
+
+# The geometry should be in Angstroms

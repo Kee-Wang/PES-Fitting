@@ -1,0 +1,35 @@
+
+Test SCF.4
+----------
+Tests the calculation of ten default J=0 SCF states, using Normal Modes 
+supplied by the user.
+
+Key input parameters
+--------------------
+ISCFCI = 0 forces `multimode' along the required SCF route.
+INORM  = 0 indicates Normal Modes to be supplied by the user.
+NPOT   = NMODE (suggested `book-keeping' value...see below...parameter ignored)
+NSTAT  > 0 produces SCF calculations for NSTAT states (see also:
+         SCF STATE DEFINITIONS below).
+
+Remarks
+-------
+The 10 default (NSTAT = 10) SCF hartree product functions are determined from
+a knowledge of the input parameters: SCF STATE DEFINITIONS.  The initial
+parameter (= 0) indicates that NSTAT = 10 default representations are to be 
+supplied as 10 records of 2 indices.  The first index is the number of quanta
+in the mode given by the secondd index.  All remaining quanta are defaulted to
+the value of the initial parameter (= 0).  These 10 SCF states are then 
+determined to a tolerance of CONV = 1.D-2 cm-1, for a maximum of 
+ICOUPL = 3-mode coupling of the potential in internal coordinates (IWHICH > 0).
+
+For potentials in internal coordinates (IWHICH > 0), the parameter NPOT
+is allocated by `multimode' to the number of Normal Modes of the system (see
+Manual for the use of NATOM and NOTTR to define the number of modes (NMODE)), 
+and is ignored on input.
+
+When the Normal Modes are supplied by the user (INORM = 0), the NPOT values of 
+`omega' input as IPOT,JPOT,CPOT are included in the input parameters.  Also, 
+when the Normal Modes are supplied by the user (INORM = 0), the NORMAL 
+COORDINATE DISPLACEMENTS are included in the input parameters.
+

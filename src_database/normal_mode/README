@@ -1,0 +1,4 @@
+./nma.x $input_file $step_size
+
+The actual step size is $step_size*5E-3
+Usually I use $step_size = 1

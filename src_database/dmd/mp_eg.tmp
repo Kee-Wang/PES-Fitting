@@ -1,0 +1,21 @@
+H H H H O O O O C C
+***,SP and Grad for formic acid dimer
+memory,128,m
+punch,mpeg.pun,new
+basis=vdz
+                                                                                
+geomtyp=xyz
+nosym
+geometry={
+<XYZ>
+}
+
+{rhf
+wf,48,1,0}
+{mp2
+wf,48,1,0}
+
+forces
+varsave
+
+---                                                                             

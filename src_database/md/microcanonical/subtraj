@@ -1,0 +1,58 @@
+#!/bin/csh
+#
+#
+
+set base=`pwd`
+
+set finp=$1
+
+set ntraj=$2
+set nstep=$3
+set nrec=$4
+set wtime=$5
+
+set rundir=$finp.'$PBS_JOBID'
+
+set nrand1=$$
+
+cat > pbs.$$<<EOF
+###
+#PBS -l nodes=1:ppn=1
+#PBS -l walltime=$wtime\:00:00
+#PBS -N md
+#PBS -r n
+#PBS -c n
+#PBS -m n
+#PBS -joe
+#PBS -koe
+#PBS -V
+#PBS -S /bin/csh
+#PBS -q b16
+
+set nrand2=\$\$
+cd /scratch/quchen
+
+mkdir $rundir
+cd $rundir
+
+
+hostname -s >> $finp.node
+
+cp $finp.node $base
+
+
+cp $base/* .
+
+./dyn.x $finp $ntraj $nstep $nrec $nrand1 \$nrand2
+
+cp * $base
+
+cd ..
+
+rm -rf $rundir
+
+EOF
+
+qsub pbs.$$
+
+rm pbs.$$

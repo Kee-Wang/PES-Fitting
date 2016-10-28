@@ -1,0 +1,27 @@
+
+Test VCI.1
+----------
+Tests the CI mixing of the three lowest quanta in each mode (restricted to a 
+maximum sum of three quanta) of the virtual basis for the SCF zpe level.
+
+Key input parameters
+--------------------
+ISCFCI > 0 forces `multimode' along the CI route.
+NSTAT  < 0 produces SCF calculations for lowest-energy |NSTAT| states.
+ICI    < 0 selects VCI option.
+NMAX   > 0 constructs the sum-restricted VCI basis.
+
+Remarks
+-------
+The lowest 50 (NSTAT = -50) SCF hartree product functions are determined from
+a knowledge of the values of `omega' resulting from the Normal Mode analysis
+(INORM > 0).  The virtual functions of ONLY the first (zpe) are used in the
+ensuing VCI calculation (note: NSTAT = -1 produces an identical virtual basis).
+
+The lowest 3 quanta (4 functions) of each 1-mode virtual basis are used to
+construct the orthonormal CI basis (ICI = -3), subject to the constraint that
+the total sum of quanta is not greater than 3 (NMAX = 3).  The first 10 CI 
+energies (ISCFCI = 10) of each block are printed, and the assignments include
+the states with the 2 largest CI coefficients (IPRINT = -2).
+
+

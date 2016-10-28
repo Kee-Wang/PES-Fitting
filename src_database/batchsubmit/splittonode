@@ -1,0 +1,26 @@
+#!/bin/csh -f                                                                                                                  
+#This file split a file into nfile files, and creat standard molpro input file for each configuration.
+#n=number of configurations per file
+#nfile=number of file after spliting
+#input=name of input file
+
+set totalconfigs = 15144
+set nfile = 24
+set linesperconfiguration = 7
+set input = '15144configs'
+
+set n = 4417
+
+set i = 1
+while ( $i <= $nfile )
+  set tail = $i
+  if ( $i < "10" ) then
+    set tail = 0$i
+  endif
+
+  set k = `expr $i - 0`
+  set j = `expr $k \* $n`
+
+head -n $j $input | tail -$n > $input.$tail
+ set  i = `expr $i + 1`
+end

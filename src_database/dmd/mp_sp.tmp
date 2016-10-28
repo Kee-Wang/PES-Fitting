@@ -1,0 +1,19 @@
+H H H O
+***,SP and Grad for h3o
+memory,128,m
+punch,mpeg.pun,new
+
+geomtyp=xyz
+geometry
+nosym
+<XYZ>
+end
+
+
+basis={
+default=aug-cc-pVDZ
+}                                                                                
+{rhf;wf,11,1,1}
+{mcscf;occ,8;closed,1;wf,11,1,1;state,3}                                         
+{rs2;occ,8;closed,1;state,1,1}
+

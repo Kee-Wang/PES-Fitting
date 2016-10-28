@@ -1,0 +1,27 @@
+#!/bin/csh -f
+#namx=number of input files
+set nmax=24
+set input = '15144configs'
+
+set i=1
+while ( $i <= $nmax )
+  set tail=$i
+  if ( $i < "10" ) then
+    set tail=0$i
+  endif
+  set dir="pts"$tail
+ 
+  mkdir $dir
+  mv $input.$tail ./$dir
+  cp 'que.pts' ./$dir
+  cp 'splitandmolpro' ./$dir
+
+  cd $dir
+  mv $input.$tail $input
+
+  qsub que.pts
+  cd ..
+
+  set  i=`expr $i + 1 `
+end
+

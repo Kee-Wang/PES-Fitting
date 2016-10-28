@@ -1,0 +1,10 @@
+This code uses microcanonical sampling to distribute the energy randomly to the cartesian velocities.  You basically just
+need to input the configuration and total kinetic energy you want to give to the molecule.
+
+You will need to make a few changes to dynam-oct09.f90 so this will work with your PES.
+
+1)  Line 279 in dynam-oct09.f90:  change nk to the number of atoms in your system.
+2)  Line 671 in dynam-oct09.f90:  change nk to the number of atoms in your system.
+3)  Line 26 and Line 38 in sub.f90:  change nk to the number of atoms in your system.
+4)  Replace "prepot" with "pes_init", and "calcpot(v,x)" with v=f(x). This code uses old pes_shell, and 'prepot' and 'calcpot' are the subroutines that initialize and calculate the potential in the old pes_shell
+

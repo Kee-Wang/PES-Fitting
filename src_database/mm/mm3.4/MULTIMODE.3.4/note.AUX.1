@@ -1,0 +1,42 @@
+
+Test AUX.1
+----------
+Tests the transformation of the input equilibrium geometry to the principal
+axis system, via the centre of mass coordinates.
+
+Key input parameters
+--------------------
+MCHECK > 0 forces `multimode' along the required route.
+ISCFCI < 0 terminates `multimode' on completion of the axis transformation.
+NPOT   = NMODE (suggested `book-keeping' value...see below...parameter ignored)
+
+Remarks
+-------
+For many molecules, the equilibrium cartesian coordinates are easiest to
+determine if, for example, the origin is on an atom and one axis is along a
+bond.   The parameter MCHECK can then be used to transform these coordinates
+into the principal axis coordinates required by the Normal Coordinate
+procedure within `multimode'.  
+
+In keeping with all AUX examples, ISCFCI < 0 is used to terminate `multimode'
+after completion of the required procedure.  To continue with the correct
+coordinates, set ISCFCI = 0 (for SCF) or > 0 (for CI), EITHER with the
+original input geometry and MCHECK > 0, OR with the principle axis geometry
+given in the output from AUX.1 and with MCHECK = 0.
+
+If symmetry exists, it is important that coordinates whose absolute values
+should be equal are, in fact input such that this requirement is satisfied.
+In most cases, this will entail modifying the last few digits in those given
+by `multimode' in the transformed coordinates to cancel rounding errors.  In
+this case, it will be necessary to continue the calculations with MCHECK = 0.
+
+For potentials in internal coordinates (IWHICH > 0), the parameter NPOT
+is allocated by `multimode' to the number of Normal Modes of the system (see
+Manual for the use of NATOM and NOTTR to define the number of modes (NMODE)),
+and is ignored on input.
+
+When the Normal Modes are supplied by the user (INORM = 0), the NPOT values of
+`omega' input as IPOT,JPOT,CPOT are included in the input parameters.  Also,
+when the Normal Modes are supplied by the user (INORM = 0), the NORMAL
+COORDINATE DISPLACEMENTS are included in the input parameters.
+

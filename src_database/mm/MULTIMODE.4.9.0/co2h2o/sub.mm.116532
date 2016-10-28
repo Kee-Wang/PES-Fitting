@@ -1,0 +1,21 @@
+job id:         116532.macronode.chem.emory.edu
+input file:     fort.1 mm
+exicutalbe for mm: mm.x
+job starts at:  Thu Jul 14 11:33:43 EDT 2016
+submitted from: macronode.chem.emory.edu
+submitted to:  
+node2
+
+./mm.x
+forrtl: severe (59): list-directed I/O syntax error, unit 1, file /scratch2/kee/mm-116532/fort.1
+Image              PC                Routine            Line        Source             
+mm.x               00000000013E8996  Unknown               Unknown  Unknown
+mm.x               000000000140DC57  Unknown               Unknown  Unknown
+mm.x               000000000140BEB5  Unknown               Unknown  Unknown
+mm.x               0000000000730350  Unknown               Unknown  Unknown
+mm.x               00000000006FBAF6  Unknown               Unknown  Unknown
+mm.x               000000000040AE5C  Unknown               Unknown  Unknown
+mm.x               00000000004004EE  Unknown               Unknown  Unknown
+mm.x               000000000149B88B  Unknown               Unknown  Unknown
+mm.x               00000000004003C9  Unknown               Unknown  Unknown
+job ends at:    Thu Jul 14 11:33:44 EDT 2016

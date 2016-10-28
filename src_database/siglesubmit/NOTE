@@ -1,0 +1,6 @@
+./sub-regnew input nnode nCPU
+only input is required
+others have default:
+nnode = 1
+nCPU = 1
+IF WANT TO CHANGE NODE, CAN REPLACE XEON16 TO B16, IF WANG TO CHANGE NAME, CAN REPLACE J$IDBASE TO K$IDEBASE
