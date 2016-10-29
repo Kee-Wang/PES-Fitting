@@ -6,6 +6,7 @@ git commit -m 'I made those change becasue...'
 git push
 4. git clone https://....
 5. git pull
+6. git status
 
 
 You might receive 403 error. There are many ways to solve it. One way is to input password for every push.
