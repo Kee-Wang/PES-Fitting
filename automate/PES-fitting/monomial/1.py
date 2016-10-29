@@ -27,7 +27,6 @@ cd emsa
 make
 cp msa ../
 cd ../
-echo 'working'
 ./msa '''+ arg +  '''
 ./postemsa.pl ''' + arg
 )
