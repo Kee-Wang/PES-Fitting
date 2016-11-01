@@ -32,7 +32,7 @@ implicit none
   xyz=xyz/auang
   v=f(xyz)
   write (13,'(3F20.8)') v
-
+  write (*,*) 'Potential energy:',v, ' Hartree'
   g1=g(xyz)
 
   do i=1,size(g1)

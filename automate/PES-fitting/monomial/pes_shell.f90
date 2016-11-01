@@ -3,7 +3,7 @@ use basis
 use gradient
 implicit none
 
-  real::coeff(1:XXX) ! change to number of coefficients
+  real::coeff(1:904) ! change to number of coefficients
                      ! (size of c in bemsa.f90)
   save coeff
 
@@ -17,7 +17,7 @@ contains
 
     open(10,file='coeff.dat',status='old')
 
-    do i=1,size(coeff) 
+    do i=1,size(coeff)
        read (10,*) coeff(i)
     end do
 
@@ -68,9 +68,9 @@ contains
     real,dimension(size(xyz,2)*(size(xyz,2)-1)/2)::r,x
     real,dimension(3,size(xyz,2)*(size(xyz,2)-1)/2)::dr
     real,dimension(size(xyz,2)*3,size(xyz,2)*(size(xyz,2)-1)/2)::drdx
-    real,dimension(1:YYY)::p   ! change to number of popynomials
+    real,dimension(1:904)::p   ! change to number of popynomials
                                ! (size of p in bemsa.f90)
-    real,dimension(1:ZZZ)::m  ! change to number of monomials
+    real,dimension(1:64)::m  ! change to number of monomials
                               ! (size of m in bemsa.f90
     real::a0
     integer::i,j,k
