@@ -13,3 +13,4 @@ You might receive 403 error. There are many ways to solve it. One way is to inpu
 1. git config -l | grep url
 Result: remote.origin.url=https://github.com/github-username/github-repository-name.git
 2. git remote set-url origin "https://github-username@github.com/github-username/github-repository-name.git"
+OR git remote set-url origin "https://Kee-Wang@github.com/Kee-Wang/repo.git"
