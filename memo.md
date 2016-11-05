@@ -7,3 +7,5 @@
 4. Long range interaction might be importance for CO2 hydrate clathrate.
 
 5. Bas's Library fitting routine is weighted while in MSA ther is no weight. The benefit of weighting in Bas's library is that the extremely big data won't affact too much.
+
+6. Molpro could result in problem such as `GLOBAL ERROR fehler on processor   0`
