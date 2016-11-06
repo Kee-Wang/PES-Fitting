@@ -1,6 +1,6 @@
-FC = gfortran -fdefault-real-8 -fdefault-double-8 #ifort -r8 -O
+FC =ifort -r8  -O # gfortran -fdefault-real-8 -fdefault-double-8 #ifort -r8 -O
 FFLAGS  = -I ../pes_shell/lib/mod
-LIBS    = -L../pes_shell/lib/pes-xyz -lpes -lpx #-mkl=sequential
+LIBS    = -L../pes_shell/lib/pes-xyz -lpes -lpx -mkl=sequential
 
 
 SRC1=1_fit.f90

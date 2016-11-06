@@ -90,8 +90,7 @@
 
         common/ico2positive/icoe22,Ncoe22
 
-        open(20,file=' ~/co2h2o/4_fit_pes/2_14_bas_pnp/pes_shell&
-/co2peslongrange.coeff.dat',status='old')
+        open(20,file='../pes_shell/co2peslongrange.coeff.dat',status='old')
           read(20,*)
           read(20,*)emin
           read(20,*)

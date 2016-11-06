@@ -9,3 +9,6 @@
         Or, as Mac user, you can add the following command in the Terminal>>Preference>>Profiles>>(your default terinal)>>Shell>>Startup, check Run command and Run inside shell, and enter: `setenv PATH /opt/pgi/osx86-64/2016/bin:/opt/pgi/osx86-64/2016/mpi/mpich/bin:$PATH;export PATH=/opt/pgi/osx86-64/2016/bin:/opt/pgi/osx86-64/2016/mpi/mpich/bin:$PATH; clear`
 
 3. Use `printenv` to print global variable.
+
+3. In Makefile, DO NOT use `PATH` as variable, becaue it is reserved. Caveats:
+  +When use `PATH1 = ./`, notice don't put a whitespace after `./`
