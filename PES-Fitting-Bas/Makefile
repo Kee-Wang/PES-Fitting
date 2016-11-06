@@ -3,7 +3,7 @@ FC = ifort -r8
 FFLAGS  = -O $(PES_MOD) 
 LIBS    = $(PES_LIB) -mkl=sequential
 
-SRC1=fit_dipole.f90
+SRC1=fit.f90
 OBJ1=$(SRC1:.f90=.o)
 
 SRC2=pes_shell.f90 getpot.f90

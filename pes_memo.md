@@ -21,3 +21,9 @@
 	Or, as Mac user, you can add the following command in the Terminal>>Preference>>Profiles>>(your default terinal)>>Shell>>Startup, check Run command and Run inside shell, and enter: `setenv PATH /opt/pgi/osx86-64/2016/bin:/opt/pgi/osx86-64/2016/mpi/mpich/bin:$PATH;export PATH=/opt/pgi/osx86-64/2016/bin:/opt/pgi/osx86-64/2016/mpi/mpich/bin:$PATH; clear`
 
 9. Use `printenv` to print global variable.
+
+10. Use `tar -vzvf 'test.tar' * ` to compress all current files.
+    `tar -czvf 'test.tar.bz2' *` is even better.
+	In order to unzip: `tar -xzvf archive.tar.gz`
+
+11. Use `grep -r 'string' ./` to search for string in the all files in current folder.

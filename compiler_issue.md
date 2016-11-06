@@ -10,5 +10,7 @@
 
 3. Use `printenv` to print global variable.
 
-3. In Makefile, DO NOT use `PATH` as variable, becaue it is reserved. Caveats:
+4. In Makefile, DO NOT use `PATH` as variable, becaue it is reserved. Caveats:
   +When use `PATH1 = ./`, notice don't put a whitespace after `./`
+
+5. ifort is free for student. Download here: `https://software.intel.com/en-us/qualify-for-free-software/student`
