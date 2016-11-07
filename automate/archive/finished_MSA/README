@@ -1,0 +1,14 @@
+
+(8) Run the fitting code: ./fit.x
+    All the coefficients will be in "coeff.dat"
+
+(9) Modify the pes_shell.f90 and getpot.f90 properly:
+    (a) pes_shell.f90: number of coefficients, number of monomials
+    (b) getpot.f90: number of atoms
+
+(10) Compile the getpot:
+     make getpot.x
+
+(11) Run the test: ./getpot.x test.xyz
+     The ab initio energy, PES energy (in Hartree) and the difference (in cm-1) will be in test.eng
+     The finite difference gradient and analytical gradient will be in test.grd.
