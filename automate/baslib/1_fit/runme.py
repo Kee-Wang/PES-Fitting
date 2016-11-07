@@ -13,12 +13,12 @@ def cl(command):
     print(output)
     return output
 
-order = raw_input('Please input the order of the polynomial:')
-symmetry = raw_input('Please input the symmetry of the polynomial(for example x3y2z1):')
-train_x = raw_input('Please input the data file name: ')
-#order = '5'
-#symmetry = 'x2y2z1'
-#train_x = 'pts.dat'
+#order = raw_input('Please input the order of the polynomial:')
+#symmetry = raw_input('Please input the symmetry of the polynomial(for example x3y2z1):')
+#train_x = raw_input('Please input the data file name: ')
+order = '4'
+symmetry = 'x2y2z1'
+train_x = 'pts.dat'
 arg = order +' '+ symmetry
 
 f = open(train_x)
