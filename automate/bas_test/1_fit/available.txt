@@ -1,0 +1,39 @@
+Those are 49 symmetry types that can be used as symmetry arguement.
+#Natom	#symmetry_type
+2
+	x2
+	x1y1
+3
+	x3
+	x2y1
+	x1y1z1
+4
+	x4
+	x3y1	x2y2
+	x2y1z1
+	x1y1z1u1
+5
+	x5
+	x4y1	x3y2
+	x3y1z1	x2y2z1
+	x2y1z1u1
+6
+	x5y1	x4y2	x3y3
+	x4y1z1	x3y2z1	x2y2z2
+	x3y1z1u1	x2y2z1u1
+7
+	x5y2	x4y3
+	x5y1z1	x4y2z1	x3y3z1	x3y2z2
+	x4y1z1u1	x3y2z1u1
+8
+	x5y3	x4y4
+	x5y2z1	x4y3z1	x4y2z2	x3y3z2
+	x5y1z1u1	x4y2z1u1
+9
+	x6y3	x5y4
+	x5y3z1	x4y4z1	x3y3z3
+10
+	x7y3
+	x6y3z1	x4y4z2
+13
+	x9y4
