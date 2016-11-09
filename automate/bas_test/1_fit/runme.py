@@ -17,8 +17,8 @@ def cl(command):
 #symmetry = raw_input('Please input the symmetry of the polynomial(for example x3y2z1):')
 #train_x = raw_input('Please input the data file name: ')
 order = '2'
-symmetry = 'x7'
-train_x = 'x7.dat'
+symmetry = 'x2y2z1'
+train_x = 'pts.dat'
 arg = order +' '+ symmetry
 
 f = open(train_x)
