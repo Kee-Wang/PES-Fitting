@@ -16,7 +16,7 @@ def cl(command):
     return output
 
 #train_x = raw_input('Please input the data file name: ')
-#train_x ='testpoint_v2b_co2h2o.dat' #'pts.dat'
+train_x ='testpoint_v2b_co2h2o.dat' #'pts.dat'
 #train_x = 'dep_pts.dat'
 
 class configs:
@@ -292,15 +292,15 @@ class configs:
 
 
 
-#a = configs(train_x)
-#list1 = a.configs_list()
+a = configs(train_x)
+list1 = a.configs_list()
 
 #a.write_print(list1)
 #a.write_file(list1,'list1test')
 #list_sorted = a.energy_sort(list1,reverse=True)
 
-#list_cut = a.energy_threshold(list1,lower=0.0)
-#a.write_file(list_cut,'v2bgr0.abs')
+list_cut = a.energy_threshold(list1,upper=0.0)
+a.write_file(list_cut,'v2b_lt_0.abs')
         #Calculate the distance betwo atom a and b.
         #         print(molecule[2][2])
         #         atom1=np.array(molecule[2][2][1])
