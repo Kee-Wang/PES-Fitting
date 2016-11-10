@@ -16,8 +16,8 @@ def cl(command):
     return output
 
 #train_x = raw_input('Please input the data file name: ')
-#train_x ='pts.dat'# 'testpoint_v2b_co2h2o.dat' #'pts.dat'
-train_x = 'dep_pts.dat'
+#train_x ='testpoint_v2b_co2h2o.dat' #'pts.dat'
+#train_x = 'dep_pts.dat'
 
 class configs:
     '''Read configuraitons and do stuff.
@@ -57,7 +57,7 @@ class configs:
                                 [molecule]
                             ]
                                     #molecule_count_total (int):    configs[0][0] = 6
-                                    #energy (float)(hatree):    configs[0][1][0] = -0.00476416
+                                    #energy (float)(Hartree):    configs[0][1][0] = -0.00476416
                                     #dipole (float)(a.u.): configs[0][1][1][0]=-0.90668842
 
 
@@ -228,7 +228,7 @@ class configs:
 
         """
         f=open(filename,'w')
-        for config in self.configs: #Write config by config
+        for config in configs: #Write config by config
             f.write('{:<2d}'.format(config[0][0])+'\n') #Number of atoms. Align number of atom to the very left
             f.write('  '), #To align the colums of energy and coordiante. Comma to continue on the same line
             if self.dip:#Print energy and dipole
@@ -256,37 +256,51 @@ class configs:
 
         print('Excuting energy_threshold:----------------')
         configs = self.energy_sort(configs)
-        config_count = 0
+        configs_new_count = 0
         configs_new = list()
         energy_lowest=configs[0][1][0][0]
         energy_highest=configs[-1][1][0][0]
 
 
-        if lower != False:
+        if lower is not False:
             energy_lowest = float(lower)
-        if upper != False:
+        if upper is not False:
             energy_highest = float(upper)
+        if energy_lowest > energy_highest:
+            print('Boundary error: lower energy bound is greater then upper energy bound. Returning origianl configurations.')
+            self.error_message()
+            return configs
+        else:
+            for config in configs:
+                if config[1][0][0] >= energy_lowest and config[1][0][0] <= energy_highest:
+                    configs_new.append(config)
+                    configs_new_count = configs_new_count + 1
+            percentage = round(float(configs_new_count)/float(self.configs_count)*100,2)
+            print('There are '+str(configs_new_count)+'/'+str(self.configs_count)+'('+str(percentage)+'%) configs between '+str(energy_lowest)+' and '+ str(energy_highest)+' Hartree')
+            print('End of energy_threshold-------------------')
+            return configs_new
 
-        for config in configs:
-            if config[1][0][0] >= energy_lowest and config[1][0][0] <= energy_highest:
-                configs_new.append(config)
-                config_count = config_count + 1
-        percentage = round(float(config_count)/float(self.configs_count)*100,2)
-        print('There are '+str(config_count)+'/'+str(self.configs_count)+'('+str(percentage)+'%) configs between '+str(energy_lowest)+' and '+ str(energy_highest)+' Hatree')
-        print('End of energy_threshold-------------------')
+    def error_message(self):
+        """To show error message and waiting for decision
 
-        return configs
-
+        """
+        decision = raw_input('Do you want to continue? (y/n) \n')
+        if decision is not 'y':
+            print('Exiting program.')
+            exit()
 
 
-a = configs(train_x,first_n_configs=3)
-list1 = a.configs_list()
+
+
+#a = configs(train_x)
+#list1 = a.configs_list()
 
 #a.write_print(list1)
 #a.write_file(list1,'list1test')
-list_sorted = a.energy_sort(list1,reverse=True)
-a.write_print(list_sorted)
-a.energy_threshold(list1,upper= -0.00005752,lower=False)
+#list_sorted = a.energy_sort(list1,reverse=True)
+
+#list_cut = a.energy_threshold(list1,lower=0.0)
+#a.write_file(list_cut,'v2bgr0.abs')
         #Calculate the distance betwo atom a and b.
         #         print(molecule[2][2])
         #         atom1=np.array(molecule[2][2][1])
