@@ -27,3 +27,5 @@
 	In order to unzip: `tar -xzvf archive.tar.gz`
 
 11. Use `grep -r 'string' ./` to search for string in the all files in current folder.
+
+12. Simply fit the feature if you have only one feature. But for a 4000 * 904 matrix, you have to think about it.
