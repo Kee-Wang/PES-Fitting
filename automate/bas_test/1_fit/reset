@@ -1,4 +1,0 @@
-#!/bin/bash
-
-rm fit.f90
-rm Makefile
