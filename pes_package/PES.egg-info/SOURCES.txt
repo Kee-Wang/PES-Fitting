@@ -4,5 +4,4 @@ PES.egg-info/SOURCES.txt
 PES.egg-info/dependency_links.txt
 PES.egg-info/top_level.txt
 pes/__init__.py
-pes/atom_order_change.py
 pes/configs.py

@@ -1,6 +1,7 @@
 1. How to creat your virtural package so that you can use
 
-`from my_package.my_code import my_class`
+
+	`from my_package.my_code import my_class` anywhere. (ref: http://www.siafoo.net/article/77#id10)
 
 	1. Prepare the directory with certain layout:
 		*root_package

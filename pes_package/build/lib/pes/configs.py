@@ -1,6 +1,14 @@
 #!/usr/bin/env python
 #import configs
 
+"""TODO:
+        1. Add info method
+        2. Give hint on type, consistency checking
+        3. Add plot distribution method (urgent)
+        4. Add random selection method
+        5. In __init__, check the same config.
+        """
+
 class configs():
     '''Read configuraitons and do stuff.
 
@@ -166,41 +174,94 @@ class configs():
         self.configs = configs
         self.dip = dip
         self.configs_count = configs_count
+        self.train_x = train_x
+        self.molecule_count_total = molecule_count_total
+        self.line_count = line_count
 
+        self.configs_sorted = self.sort(configs)
+        self.energy_lowest=self.configs_sorted[0][1][0][0]
+        self.energy_highest=self.configs_sorted[-1][1][0][0]
 
-
-        configs_sorted = self.sort(configs)
-        energy_lowest=configs_sorted[0][1][0][0]
-        energy_highest=configs_sorted[-1][1][0][0]
-
-        print('''
-        Reading summary:
-
-            Inputfile: '''+train_x+'''
-            Number of atoms: '''+str(molecule_count_total)+'''
-            Number of configurations: '''+str(configs_count)+'''
-            Number of lines in file: '''+str(line_count)+'''
-            Lowest energy (Hartree): {:14.8f}
-            Highest energy (Hartree): {:14.8f}
-
-        Reading finished.
-        '''.format(energy_lowest, energy_highest)
-            )
-
-
+        print('File reading finshed.\n')
+        self.info()
+        self.help()
 
 
         f.close()
 
-    def configs_print(self,configs):
+    def info(self,configs=False):
+
+
+        print('============================')
+        print('||          INFO          ||')
+        print('============================')
+
+        print('\nInputfile:  {}\nNumber of atoms:    {:<2d}\n'.format(self.train_x, self.molecule_count_total))
+        self.order()
+        print('Number of configurations:    {:<6d}\nNumber of lines in file:    {:<2d}\nLowest energy (Hartree):    {:14.8f}\nHighest energy (Hartree):   {:14.8f}\n'.format(self.configs_count,self.line_count,self.energy_lowest, self.energy_highest))
+        print('========END OF INFO=======\n')
+
+    def order(self,configs=False):
+        if configs is False:
+            configs = self.configs
+
+        print('Ordering: \n')
+        molecule_count = 1
+        for atom in configs[0][2]:
+            print('{} ({})'.format(atom[0],molecule_count))
+            molecule_count = molecule_count + 1
+
+
+
+    def help(self):
+        syntax="""
+        =============================
+        ||       SYNTAX HELP      ||
+        =============================
+
+        Suppose you have:
+            a = configs('input.xyz')
+
+        Now you can:
+
+            a.prt(configs=False)
+            a.write('output.xyz', configs=False)
+            a.sort(configs=False,reverse=False,key ='energy')
+            a.list(first_n_configs=False)
+            a.threshold_energy(configs,lower=False,upper=False)
+            a.distance(config,atom1,atom2)
+            a.plot()
+            a.order()
+
+        *To repeat info:
+            a.info()
+
+        *To repeat syntax help:
+            a.help()
+
+        =======END OF HELP SYNTAX====
+
+        """
+        #for line in syntax.split('\n'):
+        #            print(line.strip())
+        print(syntax)
+
+    def prt(self,configs=False):
         """Print configs into screen.
 
         """
+        configs_count=0
+
+        if configs is False:
+            print('Using default input configurations')
+            configs = self.configs
         try:
             temp = configs[0][0][0]
         except:#If has to configuration, this makes sure it can be safely iterated in the next statemnt.
             configs = [configs]
+            configs_count = configs_count + 1
         for config in configs: #Write config by config
+            configs_count = configs_count + 1
             print('{:<2d}'.format(config[0][0])) #Number of atoms. Align number of atom to the very left
             print(' '),# To align the colums of energy and coordiante
             if self.dip:#Print option for having dipole or not
@@ -209,17 +270,25 @@ class configs():
                 print('{:14.8f}'.format(config[1][0][0]))#Print energy only
             for molecule in config[2]:#The atom part: coordiante of atoms
                 print('{} {:14.8f}{:14.8f}{:14.8f}'.format(molecule[0],molecule[1][0],molecule[1][1],molecule[1][2]))
+        print('Printed {} configurations.'.format(configs_count))
 
-    def write(self,configs,filename):
+    def write(self,filename, configs=False): #Default value has to be after non-default value.
         """Write formated configurations into filename.
 
         """
         f=open(filename,'w')
+        configs_count=0
+
+        if configs is False:
+            print('Using default input configurations')
+            configs = self.configs
         try:
             temp = configs[0][0][0]
         except:#If has to configuration, this makes sure it can be safely iterated in the next statemnt.
             configs = [configs]
+            configs_count = configs_count + 1
         for config in configs: #Write config by config
+            configs_count = configs_count + 1
             f.write('{:<2d}'.format(config[0][0])+'\n') #Number of atoms. Align number of atom to the very left
             f.write('  '), #To align the colums of energy and coordiante. Comma to continue on the same line
             if self.dip:#Print energy and dipole
@@ -228,7 +297,7 @@ class configs():
                 f.write('{:14.8f}'.format(config[1][0][0])+'\n')#Print energy only
             for molecule in config[2]:#The atom part: coordiante of atoms
                 f.write('{} {:14.8f}{:14.8f}{:14.8f}'.format(molecule[0],molecule[1][0],molecule[1][1],molecule[1][2])+'\n')
-        print('Configs are written to the file: '+filename)
+        print('{} configs are written to the file: {}'.format(configs_count,filename))
         f.close()
 
     def sort(self,configs=False,reverse=False,key = 'energy'): #sort based on energy
@@ -296,7 +365,7 @@ class configs():
             print('End of energy_threshold-------------------')
             return configs_new
 
-    def threshold_distance(self,configs,lower=False,upeer=False):
+    def threshold_distance(self,configs,lower=False,upper=False):
         return
 
     def error_message(self):
@@ -308,7 +377,7 @@ class configs():
             print('Exiting program.')
             exit()
 
-    def distance(self,configs,atom1,atom2):
+    def distance(self,config,atom1,atom2):
         """To calculate distance with given two atoms.
         Internal
         atom = molecue[i] = [[element],[x, y, z]]
@@ -316,10 +385,27 @@ class configs():
 
         import numpy as np
         import math
-        atom1 = np.array(atom1[1])
-        atom2 = np.array(atom2[1])
+        atom1 = int(atom1)-1
+        atom2 = int(atom2)-1
+        atom1 = np.array(config[2][atom1][1])
+        atom2 = np.array(config[2][atom2][1])
         dis = math.sqrt(np.sum(np.square(atom1-atom2)))
         return dis
+
+
+    def switch(self):
+
+        new atom 1 is the old atom :
+        molecule_count = 1
+        if molecule_count <= self.molecule_count_total:
+            atom1 = raw_input('New atom {:<2d} is the old atom {:<2d}: ',format(molecule_count))
+        molecule_count = molecule_count + 1
+
+    def translate(self):
+
+        atom1 = raw_input('Atom 1: ')
+        pass
+
 
     def plot(self):
         import numpy as np
@@ -331,9 +417,13 @@ class configs():
 
 train_x = 'testpoint_v2b_co2h2o.dat'
 
-# a = configs(train_x, first_n_configs=10)
-# b = a.list(first_n_configs=6)
-# a.configs_print(b)
+a = configs(train_x, first_n_configs=1000)
+b = a.sort(a.list()[0:3])
+for config in b:
+    print('{:14.8f}'.format(a.distance(config,3,6)))
+
+a.order()
+#a.write('test.write')
 #a.plot()
 
 
@@ -343,7 +433,7 @@ train_x = 'testpoint_v2b_co2h2o.dat'
 #     if dis > 8:
 #         count = count + 1
 #         print(dis)
-#         a.configs_print(config)
+#         a.prt(config)
 #
 # print(count)
 
