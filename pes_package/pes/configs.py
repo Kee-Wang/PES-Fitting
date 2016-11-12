@@ -555,7 +555,7 @@ class configs():
             for dis in range(0,10,0.5):
                 self.translate(configs=False,atom_A=3, atom_B = 6, monomer_A = '4 5', monomer_B = '1 2', dis_lower = 2, dis_upper = 10, dis_new_lower=dis, dis_new_upper=dis)
 
-    def add_expand(self, configs=False, monomer=False, dis_lower=False, dis_uppder=False, dis_new_lower=False, dis_new_upper=False):
+    def add_expand(self, n_configs=False,configs=False,  first_n_configs=False, monomer=False, dis_lower=False, dis_uppder=False, dis_new_lower=False, dis_new_upper=False):
         import numpy as np
         configs_new = list()
         configs = self.configs_check(configs)
@@ -572,12 +572,24 @@ class configs():
         atom_A = monomer[0][0]
         atom_B = monomer[1][0]
 
-        for config in configs:
+
+
+        if n_configs is not False:
+            n_configs = int(n_configs)
+        else:
+            n_configs = len(configs)
+
+        configs_count = 0
+        rand_pool = len(configs)
+        while configs_count < n_configs:
+            configs_count += 1
+            config = configs[np.random.randint(1,rand_pool)]
             dis = self.distance(config,atom_A,atom_B)
             if dis_lower <= dis <= dis_upper:
                 dis_new = np.random.uniform(dis_new_lower,dis_new_upper)
                 config_new = self.translate(dis_new,config)
                 configs_new.append(config_new)
+
 
             #print(self.distance(config_new,atom_A,atom_B))
 
@@ -629,7 +641,7 @@ b = a.list()
 #a.prt(b)
 #a.translate()
 #a.prt(b)
-c = a.add_expand()
+c = a.add_expand(configs=b)
 
 #a.monomer()
 a.write('large_distance.xyz',c)
