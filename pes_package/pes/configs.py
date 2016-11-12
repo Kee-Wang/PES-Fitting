@@ -6,7 +6,8 @@
         2. Give hint on type, consistency checking
         3. Add plot distribution method (urgent)
         4. Add random selection method
-        5. In __init__, check the same config.
+        5. In __init__, check the same config
+        6. To speed up, use Numpy whenever possible, for example in sorting.
         """
 
 class configs():
@@ -201,11 +202,15 @@ class configs():
         print('\nInputfile:  {}\nNumber of atoms:    {:<2d}\n'.format(self.train_x, self.molecule_count_total))
         self.order()
         print('Number of configurations:    {:<6d}\nNumber of lines in file:    {:<2d}\nLowest energy (Hartree):    {:14.8f}\nHighest energy (Hartree):   {:14.8f}\n'.format(self.configs_count,self.line_count,self.energy_lowest, self.energy_highest))
+        print('Configuration that contains lowest energy: ')
+        self.prt(self.configs_sorted[0])
+        print('Configuration that contains highest energy: ')
+        self.prt(self.configs_sorted[-1])
         print('========END OF INFO=======\n')
 
     def order(self,configs=False):
 
-        configs=self.configs_status(configs)
+        configs=self.configs_check(configs)
         print('Atom numbering:')
         molecule_count = 1
         for atom in configs[0][2]:
@@ -228,7 +233,7 @@ class configs():
             a.sort(configs=False,reverse=False,key ='energy')
             a.list(first_n_configs=False)
             a.threshold_energy(configs,lower=False,upper=False)
-            a.distance(config,atom1,atom2)
+            a.distance(config,atom_A,atom_B)
             a.plot()
             a.order()
 
@@ -250,9 +255,9 @@ class configs():
 
         """
 
-        print('*Status: printing...')
+        #print('*Status: printing...')
         configs_count=0
-        configs=self.configs_status(configs)
+        configs=self.configs_check(configs)
 
         for config in configs: #Write config by config
             configs_count = configs_count + 1
@@ -266,7 +271,7 @@ class configs():
                 print('    {} {:14.8f}{:14.8f}{:14.8f}'.format(molecule[0],molecule[1][0],molecule[1][1],molecule[1][2]))
 
         print('----Printed {} configuration(s).\n'.format(configs_count))
-        print('*Status: printing finished.\n')
+        #print('*Status: printing finished.\n')
     def write(self,filename, configs=False): #Default value has to be after non-default value.
         """Write formated configurations into filename.
 
@@ -276,7 +281,7 @@ class configs():
         f=open(filename,'w')
         configs_count=0
 
-        configs=self.configs_status(configs)
+        configs=self.configs_check(configs)
         for config in configs: #Write config by config
             configs_count = configs_count + 1
             f.write('{:<2d}'.format(config[0][0])+'\n') #Number of atoms. Align number of atom to the very left
@@ -298,7 +303,7 @@ class configs():
         """
 
         print('*Status: sorting...\n')
-        configs=self.configs_status(configs)
+        configs=self.configs_check(configs)
 
         if key == 'energy':
             print('\n----Sorting by energy...\n')
@@ -373,7 +378,7 @@ class configs():
             print('Exiting program.')
             exit()
 
-    def distance(self,config,atom1,atom2):
+    def distance(self,config,atom_A,atom_B):
         """To calculate distance with given two atoms.
         Internal
         atom = molecue[i] = [[element],[x, y, z]]
@@ -381,11 +386,11 @@ class configs():
 
         import numpy as np
         import math
-        atom1 = int(atom1)-1
-        atom2 = int(atom2)-1
-        atom1 = np.array(config[2][atom1][1])
-        atom2 = np.array(config[2][atom2][1])
-        dis = math.sqrt(np.sum(np.square(atom1-atom2)))
+        atom_A = int(atom_A)-1
+        atom_B = int(atom_B)-1
+        atom_A = np.array(config[2][atom_A][1])
+        atom_B = np.array(config[2][atom_B][1])
+        dis = math.sqrt(np.sum(np.square(atom_A-atom_B)))
         return dis
 
     def switch(self,configs=False):
@@ -425,14 +430,15 @@ class configs():
         print('''New configs are returned as list, please use a.write(configs_new,'ouput') to save configs.''')
         return configs_new
 
-    def configs_status(self,configs):
+    def configs_check(self,configs,silence=True):
         """To check if give the configs arugment.
 
-            Usage: configs=configs_status(configs)
+            Usage: configs=configs_check(configs)
         """
 
         if configs is False:
-            print('Using original list.')
+            if silence is not True:
+                print('Using original list.')
             return self.configs
         else:
             try:
@@ -441,103 +447,170 @@ class configs():
             except:#If has to configuration, this makes sure it can be safely iterated in the next statemnt.
                 return [configs]
 
-    def translate(self,configs=False):
+    def translate(self,dis_new=False, monomer = False, config=False):
+        """Give a dimer and designated atom groups, translate in vector AB from previous distance to new distance
+
+            Input:
+                dis_new :: the distance after translation, essiential
+                monomer :: contains the info about monomer groups and referenced atoms, omit this if use default.
+                config :: take one configuraiton so that it can do the translation. If given multiple configuraitons, return only first one.
+
+            Output:
+                configs_new :: none-nested configuraiton, subset of configs.
+
+            Theory:
+                For point A and B. Now translate B along AB direction to distance dis_new = |AC| and become C. Parameter function for line AB:
+                    xC = xA + m*t
+                    yC = yA + n*t
+                    zC = zA + p*t
+                where:
+                    t = dis_new/sqrt((m**2+n**2+p**2))
+                    (m,n,p) = vector(AB)
+
+                Suppose D is also the same monomer as B, and in ordor to translate D:
+                    xD_new = xD + m*t
+                    yD_new = yD + n*t
+                    zD_new = zD + p*t
+                where t and m,n,p take the same value as previous one.
+
+
+        """
         import numpy as np
-        print('*Status: start translating...')
-        configs=self.configs_status(configs)
-        self.order(configs)
-        monomer1 = list()
-        monomer2 = list()
+        import copy
 
-        print('----Translate along the A-B direction')
-        #atom1 = int(raw_input('What is the number of atom A: '))
-        atom1 = 3# Arguemnt for test
-        #atom2 = int(raw_input('What is the number of atom B: '))
-        atom2 = 6# Argument for test
-        print('(Input integer with whitespace)')
-        #str1 = raw_input('The monomer that contains A also contains: ')
+        #print('*Status: start translating...')
+        configs=self.configs_check(config)
+        #dis_new = 10# Argument for test
+        #print(self.monomer())
+
+        monomer = self.monomer(configs)
+        monomer_A = monomer[0]
+        monomer_B = monomer[1]
+        atom_A = monomer_A[0]
+        atom_B = monomer_B[0]
+
+        config_new = copy.deepcopy(configs[0]) #Everytime need a new list with same vaule need deepcopy.
+
+        dis = self.distance(config_new,atom_A,atom_B)
+        v_AB = np.array(self.vector(config_new, atom_A, atom_B))
+        v_A = np.array(self.vector(config_new, atom_A))
+        v_B = np.array(self.vector(config_new, atom_B))
+        t = dis_new/np.sqrt((np.sum(np.square(v_AB))))
+
+        monomer_B_new = list()
+        for atom in monomer_B:
+            v_atom_new = v_A + v_AB * t
+            config_new[2][atom-1][1] = v_atom_new
+        #self.prt(config_new)
+                # #print(v_A)
+                # print(v_B)
+                # print(v_B_new)
+                # print(dis_new)
+                # v_AB_new = v_B_new - v_A
+                # dis_check = np.sqrt(np.sum(np.square(v_AB_new)))
+                # print(dis_check)
+            #else:
+                #print('*Error: No configuration in this region.')
+        #print('test finshed')
+        #print('Configs that satisfy this criteria: {:d}/{:d}'.format(configs_count,configs_good_count))
+        return config_new # One none-nested configuraiton list
+
+    def monomer(self,atom_A=False, atom_B = False, monomer_A = False, monomer_B = False, configs=False):
+        """To assign monomer groups and return as two lists of number. Use default groups if no assign.
+
+            Example: monomer = [[[3, 4, 5], [6, 1, 2]]]
+        """
+
+        monomer=list()
+        configs=self.configs_check(configs)
+        #if atom_A is False:
+        atom_A= 3# Arguemnt for test
+        atom_B= 6# Argument for test
         str1 = '4 5'# Argument for test
-        #str2 = raw_input('The monomer that contains B also contains: ')
-        str2 = '1 2'
+        str2 = '1 2'# Argument for test
+
+        monomer_A = [atom_A]
+        monomer_B = [atom_B]
         for line in str1.split():
-            monomer1.append(int(line.strip()))
+            monomer_A.append(int(line.strip()))
         for line in str2.split():
-            monomer2.append(int(line.strip()))
-        #dis_min = float(raw_input('The original distance_min (Angstrom) you want is : '))
-        dis_min = float(2)#Arument for test
-        #dis_max = float(raw_input('The original distance_max (Angstrom) you want is: '))
-        dis_max = float(4)
-        #dis_new_min = float(raw_input('The original distance_new_min (Angstrom) you want is: '))
-        dis_new_min = float(9)
-        #dis_new_min = float(raw_input('The original distance_new_man (Angstrom) you want is: '))
-        dis_new_max = float(10)
+            monomer_B.append(int(line.strip()))
+        monomer=[monomer_A,monomer_B]
+        #print(monomer)
+        return monomer
+        #Example: monomer = [[[3, 4, 5], [6, 1, 2]]]
 
-        configs_count=0
-        configs_good_count=0
+    def dissociation(self,configs=False, dis_new=False):
+
+
+
+            print('----Translate along the A-B direction')
+            #atom_A = int(raw_input('What is the number of atom A: '))
+            #atom_B = int(raw_input('What is the number of atom B: '))
+            print('(Input integer with whitespace)')
+            #str1 = raw_input('The monomer that contains A also contains: ')
+            #str2 = raw_input('The monomer that contains B also contains: ')
+
+            self.order(configs)
+            for dis in range(0,10,0.5):
+                self.translate(configs=False,atom_A=3, atom_B = 6, monomer_A = '4 5', monomer_B = '1 2', dis_lower = 2, dis_upper = 10, dis_new_lower=dis, dis_new_upper=dis)
+
+    def add_expand(self, configs=False, monomer=False, dis_lower=False, dis_uppder=False, dis_new_lower=False, dis_new_upper=False):
+        import numpy as np
         configs_new = list()
+        configs = self.configs_check(configs)
+        #dis_lower = float(raw_input('The original distance_min (Angstrom) you want is : '))
+        dis_lower = float(2)#Arument for test
+        #dis_upper = float(raw_input('The original distance_max (Angstrom) you want is: '))
+        dis_upper = float(4)
+        #dis_new_lower = float(raw_input('The original distance_new_min (Angstrom) you want is: '))
+        dis_new_lower = float(8)
+        #dis_new_lower = float(raw_input('The original distance_new_man (Angstrom) you want is: '))
+        dis_new_upper = float(18)
+
+        monomer = self.monomer(configs)
+        atom_A = monomer[0][0]
+        atom_B = monomer[1][0]
+
         for config in configs:
-            configs_count = configs_count + 1
-            dis = self.distance(config,atom1,atom2)
-            if dis_min <= dis <= dis_max:
-                configs_good_count += 1
-                dis_new = np.random.uniform(dis_new_min,dis_new_max)
-                #dis_new = dis
-                v_AB = np.array(self.vector(config, atom1, atom2))
-                v_A = np.array(self.vector(config,atom1))
-                v_B = np.array(self.vector(config,atom2))
-                t = dis_new/np.sqrt((np.sum(np.square(v_AB))))
-                if dis_new < dis:
-                    t = - t
-                v_B_new = v_A + v_AB * t
+            dis = self.distance(config,atom_A,atom_B)
+            if dis_lower <= dis <= dis_upper:
+                dis_new = np.random.uniform(dis_new_lower,dis_new_upper)
+                config_new = self.translate(dis_new,config)
+                configs_new.append(config_new)
 
+            #print(self.distance(config_new,atom_A,atom_B))
 
-                #print('v_A: ', v_A)
-                #print('v_AB: ',v_AB)
-                #print('t: ', t)
-                #print('v_AB * t', v_AB*t)
-                #print('v_A + v_AB * t', v_A + v_AB * t )
-                print(v_A)
-                print(v_B)
-                print(v_B_new)
-                print(dis_new)
-                v_AB_new = v_B_new - v_A
-                dis_check = np.sqrt(np.sum(np.square(v_AB_new)))
-                print(dis_check)
-            else:
-                print('*Error: No configuration in this region.')
+        print('{:d} configurations are return as list.'.format(len(configs_new)))
+        return configs_new #List of configs that have just been expanded.
 
-        print('test finshed')
-        print('Configs that satisfy this criteria: {:d}/{:d}'.format(configs_count,configs_good_count))
-
-    def vector(self,config,atom1,atom2=False):
+    def vector(self,config,atom_A,atom_B=False):
         """For a given configuration and two atoms A and B, give back the vector BA.
 
         """
         import numpy as np
 
-        if atom2 is False:
-            atom1 = int(atom1) - 1
-            return np.array(config[2][atom1][1])
+        if atom_B is False:
+            atom_A = int(atom_A) - 1
+            return np.array(config[2][atom_A][1])
         else:
-            atom1 = int(atom1) - 1
-            atom2 = int(atom2) - 1
-            atom1 = np.array(config[2][atom1][1])
-            atom2 = np.array(config[2][atom2][1])
-            vector21 = atom2-atom1
+            atom_A = int(atom_A) - 1
+            atom_B = int(atom_B) - 1
+            atom_A = np.array(config[2][atom_A][1])
+            atom_B = np.array(config[2][atom_B][1])
+            vector21 = atom_B-atom_A
             return vector21
 
-    def plot(self,configs=False):
-        configs = self.configs_status(configs)
+    def molden(self,configs=False):
+        configs = self.configs_check(configs)
         self.write('plot.temp',configs)
-        self.cl('molden plot.temp')
-
-
+        self.cl('/raid/molden4.7/molden plot.temp')#Please use the absolut path of molden becasue it is not considerd as 'installed'
 
     def cl(self,command):
-    #ip::string, command line as string input
-    #op::string, return value is the output of command line
-    #Notice, each time when change dire.ctly, cl starts from currect directory.
-    #Use three \' if you want to input multiple line
+        #ip::string, command line as string input
+        #op::string, return value is the output of command line
+        #Notice, each time when change dire.ctly, cl starts from currect directory.
+        #Use three \' if you want to input multiple line
         import subprocess
         import os
         import shlex
@@ -551,7 +624,12 @@ class configs():
 
 train_x = 'testpoint_v2b_co2h2o.dat'
 
-a = configs(train_x,first_n_configs=10)
-#b = a.list()
-a.plot()
-#a.write('switch.test',a.switch(b))
+a = configs(train_x,first_n_configs=1000)
+b = a.list()
+#a.prt(b)
+#a.translate()
+#a.prt(b)
+c = a.add_expand()
+
+#a.monomer()
+a.write('large_distance.xyz',c)
