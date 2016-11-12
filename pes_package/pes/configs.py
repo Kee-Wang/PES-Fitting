@@ -447,7 +447,7 @@ class configs():
             except:#If has to configuration, this makes sure it can be safely iterated in the next statemnt.
                 return [configs]
 
-    def translate(self,dis_new=False, monomer = False, config=False):
+    def translate(self,dis_new=False, config=False,monomer = False):
         """Give a dimer and designated atom groups, translate in vector AB from previous distance to new distance
 
             Input:
@@ -580,10 +580,12 @@ class configs():
             n_configs = len(configs)
 
         configs_count = 0
-        rand_pool = len(configs)
+        rand_pool = len(configs) + 1
         while configs_count < n_configs:
             configs_count += 1
-            config = configs[np.random.randint(1,rand_pool)]
+            #print(np.random.randint(1,rand_pool))
+            config = configs[np.random.randint(1,rand_pool)-1]
+            #self.prt(config)
             dis = self.distance(config,atom_A,atom_B)
             if dis_lower <= dis <= dis_upper:
                 dis_new = np.random.uniform(dis_new_lower,dis_new_upper)
@@ -594,6 +596,7 @@ class configs():
             #print(self.distance(config_new,atom_A,atom_B))
 
         print('{:d} configurations are return as list.'.format(len(configs_new)))
+        print('*Add point: Expand finished.')
         return configs_new #List of configs that have just been expanded.
 
     def vector(self,config,atom_A,atom_B=False):
@@ -641,7 +644,7 @@ b = a.list()
 #a.prt(b)
 #a.translate()
 #a.prt(b)
-c = a.add_expand(configs=b)
-
+c = a.add_expand(1000,configs=b)
+#a.prt(c)
 #a.monomer()
-a.write('large_distance.xyz',c)
+a.write('large_distance.xyz',a.sort(c))
