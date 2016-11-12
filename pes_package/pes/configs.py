@@ -63,6 +63,8 @@ class configs():
 
     '''
 
+
+
     def __init__(self,train_x,dip = False,first_n_configs=False):
         '''Read input file into configs with checks
 
@@ -440,7 +442,7 @@ class configs():
                 return [configs]
 
     def translate(self,configs=False):
-
+        import numpy as np
         print('*Status: start translating...')
         configs=self.configs_status(configs)
         self.order(configs)
@@ -448,32 +450,108 @@ class configs():
         monomer2 = list()
 
         print('----Translate along the A-B direction')
-        atom1 = int(raw_input('What is the number of atom A: '))
-        atom2 = int(raw_input('What is the number of atom B: '))
+        #atom1 = int(raw_input('What is the number of atom A: '))
+        atom1 = 3# Arguemnt for test
+        #atom2 = int(raw_input('What is the number of atom B: '))
+        atom2 = 6# Argument for test
         print('(Input integer with whitespace)')
-        str1 = raw_input('The monomer that contains A also contains: ')
-        str2 = raw_input('The monomer that contains B also contains: ')
+        #str1 = raw_input('The monomer that contains A also contains: ')
+        str1 = '4 5'# Argument for test
+        #str2 = raw_input('The monomer that contains B also contains: ')
+        str2 = '1 2'
         for line in str1.split():
             monomer1.append(int(line.strip()))
         for line in str2.split():
             monomer2.append(int(line.strip()))
-        
+        #dis_min = float(raw_input('The original distance_min (Angstrom) you want is : '))
+        dis_min = float(2)#Arument for test
+        #dis_max = float(raw_input('The original distance_max (Angstrom) you want is: '))
+        dis_max = float(4)
+        #dis_new_min = float(raw_input('The original distance_new_min (Angstrom) you want is: '))
+        dis_new_min = float(9)
+        #dis_new_min = float(raw_input('The original distance_new_man (Angstrom) you want is: '))
+        dis_new_max = float(10)
+
+        configs_count=0
+        configs_good_count=0
+        configs_new = list()
+        for config in configs:
+            configs_count = configs_count + 1
+            dis = self.distance(config,atom1,atom2)
+            if dis_min <= dis <= dis_max:
+                configs_good_count += 1
+                dis_new = np.random.uniform(dis_new_min,dis_new_max)
+                #dis_new = dis
+                v_AB = np.array(self.vector(config, atom1, atom2))
+                v_A = np.array(self.vector(config,atom1))
+                v_B = np.array(self.vector(config,atom2))
+                t = dis_new/np.sqrt((np.sum(np.square(v_AB))))
+                if dis_new < dis:
+                    t = - t
+                v_B_new = v_A + v_AB * t
+
+
+                #print('v_A: ', v_A)
+                #print('v_AB: ',v_AB)
+                #print('t: ', t)
+                #print('v_AB * t', v_AB*t)
+                #print('v_A + v_AB * t', v_A + v_AB * t )
+                print(v_A)
+                print(v_B)
+                print(v_B_new)
+                print(dis_new)
+                v_AB_new = v_B_new - v_A
+                dis_check = np.sqrt(np.sum(np.square(v_AB_new)))
+                print(dis_check)
+            else:
+                print('*Error: No configuration in this region.')
 
         print('test finshed')
+        print('Configs that satisfy this criteria: {:d}/{:d}'.format(configs_count,configs_good_count))
 
-    def plot(self):
+    def vector(self,config,atom1,atom2=False):
+        """For a given configuration and two atoms A and B, give back the vector BA.
+
+        """
         import numpy as np
-        import matplotlib.pyplot as plt
-        x = np.arange(0,3 * np.pi, 0.1)
-        y = np.sin(x)
-        plt.plot(x,y)
-        plt.show()
+
+        if atom2 is False:
+            atom1 = int(atom1) - 1
+            return np.array(config[2][atom1][1])
+        else:
+            atom1 = int(atom1) - 1
+            atom2 = int(atom2) - 1
+            atom1 = np.array(config[2][atom1][1])
+            atom2 = np.array(config[2][atom2][1])
+            vector21 = atom2-atom1
+            return vector21
+
+    def plot(self,configs=False):
+        configs = self.configs_status(configs)
+        self.write('plot.temp',configs)
+        self.cl('molden plot.temp')
+
+
+
+    def cl(self,command):
+    #ip::string, command line as string input
+    #op::string, return value is the output of command line
+    #Notice, each time when change dire.ctly, cl starts from currect directory.
+    #Use three \' if you want to input multiple line
+        import subprocess
+        import os
+        import shlex
+        arg = shlex.split(command)
+        p = subprocess.Popen(command, stdout=subprocess.PIPE, shell=True)
+        (output, err) = p.communicate()
+        print(output)
+        return output
+
+
 
 train_x = 'testpoint_v2b_co2h2o.dat'
 
-a = configs(train_x,first_n_configs=1)
-b = a.sort(a.list())
-a.prt(b)
-a.write('test',b)
-a.translate()
+a = configs(train_x,first_n_configs=10)
+#b = a.list()
+a.plot()
 #a.write('switch.test',a.switch(b))
