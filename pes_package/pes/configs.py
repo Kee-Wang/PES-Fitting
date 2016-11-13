@@ -66,6 +66,7 @@ class configs():
 
 
 
+
     def __init__(self,train_x,dip = False,first_n_configs=False):
         '''Read input file into configs with checks
 
@@ -105,6 +106,11 @@ class configs():
             * Cartisian coordiante: existence, type and dimension
             Notice: consistency error includes the existence error because not existent is also considered as inconsistent.
         '''
+        """Constants"""
+        self.hartree_to_cm = 219474.63
+
+
+
         f = open(train_x)
         configs_count = 0
         line_count = 0
@@ -182,8 +188,10 @@ class configs():
         self.line_count = line_count
 
         self.configs_sorted = self.sort(configs)
-        self.energy_lowest=self.configs_sorted[0][1][0][0]
-        self.energy_highest=self.configs_sorted[-1][1][0][0]
+        self.energy_lowest=self.energy_array_sorted[0]
+        self.energy_highest=self.energy_array_sorted[-1]
+        self.energy_lowest_cm = self.energy_array_sorted_cm[0]
+        self.energy_highest_cm = self.energy_array_sorted_cm[-1]
         print('**Status: Configurations checked!')
         print('**Status: File reading finshed.\n')
         #self.info()
@@ -301,7 +309,8 @@ class configs():
 
         TODO: sort key = distance
         """
-
+        import numpy as np
+        import copy
         print('*Status: sorting...\n')
         configs=self.configs_check(configs)
 
@@ -313,9 +322,20 @@ class configs():
                 #return configs
             else: #Default, from low to high.
                 configs.sort(key= lambda item:item[1][0])
+                energy_array_sorted = list()
+                energy_array = list()
+
+                for config in configs:
+                    print(config[1][0][0])
+                    energy_array_sorted = energy_array.append(config[1][0][0])
+                print(energy_array_sorted)
+                self.energy_array_sorted = energy_array_sorted
+                energy_array_sorted_cm = copy.deepcopy(energy_array_sorted)
+                self.energy_array_sorted_cm = np.array(energy_array_sorted_cm)* self.hartree_to_cm
                 #print('\nSort finished.\n')
                 #return configs
         else:#Reserved for other key expansion in the future.
+
             return
 
         print('\n*Status: sorting finished.\n')
@@ -439,7 +459,7 @@ class configs():
         if configs is False:
             if silence is not True:
                 print('Using original list.')
-            return self.configs
+            return self.configs_sorted
         else:
             try:
                 check = configs[0][0][0]#Check if the list has only one configuration but one layer smaller
@@ -499,7 +519,8 @@ class configs():
 
         monomer_B_new = list()
         for atom in monomer_B:
-            v_atom_new = v_A + v_AB * t
+            v_atom = np.array(self.vector(config_new, atom))
+            v_atom_new = v_atom + v_AB * t
             config_new[2][atom-1][1] = v_atom_new
         #self.prt(config_new)
                 # #print(v_A)
@@ -580,14 +601,16 @@ class configs():
             n_configs = len(configs)
 
         configs_count = 0
+        configs_ok_count = 0
         rand_pool = len(configs) + 1
-        while configs_count < n_configs:
+        while configs_ok_count < n_configs:
             configs_count += 1
             #print(np.random.randint(1,rand_pool))
             config = configs[np.random.randint(1,rand_pool)-1]
             #self.prt(config)
             dis = self.distance(config,atom_A,atom_B)
             if dis_lower <= dis <= dis_upper:
+                configs_ok_count += 1
                 dis_new = np.random.uniform(dis_new_lower,dis_new_upper)
                 config_new = self.translate(dis_new,config)
                 configs_new.append(config_new)
@@ -595,7 +618,7 @@ class configs():
 
             #print(self.distance(config_new,atom_A,atom_B))
 
-        print('{:d} configurations are return as list.'.format(len(configs_new)))
+        print('{:d}/{:d} configurations are returned as list.'.format(len(configs_new),configs_ok_count))
         print('*Add point: Expand finished.')
         return configs_new #List of configs that have just been expanded.
 
@@ -635,16 +658,51 @@ class configs():
         print(output)
         return output
 
+    def plot(self,configs = False):
+        import numpy as np
+        import matplotlib.pyplot as plt
 
+        configs = self.configs_check(configs)
 
+        if configs is not False:
+            energy_array = list()
+            for config in configs:
+                energy_array.append(config[1][0][0]* self.hartree_to_cm)
+            #print(energy_array)
+        else:
+            energy_array = self.energy_array_cm
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+
+        x = energy_array
+        #x = np.random.normal(0,1,1000)
+        #print(x)
+        binwidth = 5
+        numBins = 100
+        ax.hist(x,numBins,color='green',alpha=0.8)
+        ax.set_xlabel("Energy(cm$^{-1}$)")
+        ax.set_ylabel("Frequency")
+        ax.annotate('Lowest Energy',xy=(energy_array[0],10),xytext=(energy_array[0], 1000),arrowprops=dict(facecolor='black',shrink =0.005))
+        ax.annotate('Highest Energy',xy=(energy_array[-1],10),xytext=(energy_array[-1], 1000),arrowprops=dict(facecolor='black',shrink =0.005))
+        plt.gcf()
+        plt.show()
+        decision = raw_input('''Do you want to save the file? (Enter 'y' to save, enter others to skip)''')
+        if decision is 'y':
+            filename = raw_input('Please specify .eps (1200 dpi) filename: ').strip()
+
+            plt.savefig(filename, format='eps', dpi=1200)
+            print('Plot saved to {}.'.format(filename))
+
+        #print(energy_array[0])
 train_x = 'testpoint_v2b_co2h2o.dat'
 
-a = configs(train_x,first_n_configs=1000)
+a = configs(train_x,first_n_configs=100)
 b = a.list()
+#a.plot()
 #a.prt(b)
 #a.translate()
 #a.prt(b)
-c = a.add_expand(1000,configs=b)
+#c = a.add_expand(1600,configs=b)
 #a.prt(c)
 #a.monomer()
-a.write('large_distance.xyz',a.sort(c))
+#a.write('large_distance.xyz',a.sort(c))
