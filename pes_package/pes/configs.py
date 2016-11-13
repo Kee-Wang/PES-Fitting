@@ -99,6 +99,7 @@ class configs():
 
         2. Check input:
             While reading files, it can check:
+            * Skip blank lines automatically.
             * Number of atoms: existence, type and consistency
             * Energy: existence and type
             * Dipole (if dip = True): existence, type and dimension
@@ -117,8 +118,12 @@ class configs():
         element_1 = list()
         configs = list()
         dipole = list()
+        blank_line_count = 0
         for line in f:
             line = line.strip() #The delete the newline character
+            if len(line) == 0:
+                blank_line_count += 1
+                continue
             line_count = line_count + 1
             if line_count == 1: # This is number of atoms.  #Check type
                 if line.isdigit():
@@ -179,7 +184,7 @@ class configs():
                     break
 
 
-
+        self.blank_line_count = blank_line_count
         self.configs = configs
         self.dip = dip
         self.configs_count = configs_count
@@ -194,7 +199,7 @@ class configs():
         self.energy_highest_cm = self.energy_array_sorted_cm[-1]
         print('**Status: Configurations checked!')
         print('**Status: File reading finshed.\n')
-        #self.info()
+        self.info()
         #self.help()
 
 
@@ -207,11 +212,17 @@ class configs():
         print('||          INFO          ||')
         print('============================')
 
-        print('\nInputfile:  {}\nNumber of atoms:    {:<2d}\n'.format(self.train_x, self.molecule_count_total))
+        print('Inputfile:  {}'.format(self.train_x))
+        print('Number of atoms:    {:<2d}'.format(self.molecule_count_total))
         self.order()
-        print('Number of configurations:    {:<6d}\nNumber of lines in file:    {:<2d}\nLowest energy (Hartree):    {:14.8f}\nHighest energy (Hartree):   {:14.8f}\n'.format(self.configs_count,self.line_count,self.energy_lowest, self.energy_highest))
-        print('Configuration that contains lowest energy: ')
+        print('Number of configurations:    {:<6d}'.format(self.configs_count))
+        print('Number of blank lines in file:    {:<2d}'.format(self.blank_line_count))
+
+        print('\nLowest energy (Hartree):    {:14.8f}'.format(self.energy_lowest))
+        print('Lowest energy (wavenumber):    {:14.8f}'.format(self.energy_lowest_cm))
         self.prt(self.configs_sorted[0])
+        print('Highest energy (Hartree):   {:14.8f}'.format(self.energy_highest))
+        print('Highest energy (wavenumber):   {:14.8f}'.format(self.energy_highest_cm))
         print('Configuration that contains highest energy: ')
         self.prt(self.configs_sorted[-1])
         print('========END OF INFO=======\n')
@@ -280,6 +291,7 @@ class configs():
 
         print('----Printed {} configuration(s).\n'.format(configs_count))
         #print('*Status: printing finished.\n')
+
     def write(self,filename, configs=False): #Default value has to be after non-default value.
         """Write formated configurations into filename.
 
@@ -326,11 +338,10 @@ class configs():
                 energy_array = list()
 
                 for config in configs:
-                    print(config[1][0][0])
-                    energy_array_sorted = energy_array.append(config[1][0][0])
-                print(energy_array_sorted)
-                self.energy_array_sorted = energy_array_sorted
-                energy_array_sorted_cm = copy.deepcopy(energy_array_sorted)
+                    #print(config[1][0][0])
+                    energy_array.append(config[1][0][0])
+                self.energy_array_sorted = energy_array
+                energy_array_sorted_cm = copy.deepcopy(self.energy_array_sorted)
                 self.energy_array_sorted_cm = np.array(energy_array_sorted_cm)* self.hartree_to_cm
                 #print('\nSort finished.\n')
                 #return configs
@@ -480,11 +491,11 @@ class configs():
 
             Theory:
                 For point A and B. Now translate B along AB direction to distance dis_new = |AC| and become C. Parameter function for line AB:
-                    xC = xA + m*t
-                    yC = yA + n*t
-                    zC = zA + p*t
+                    xC = xB + m*t
+                    yC = yB + n*t
+                    zC = zB + p*t
                 where:
-                    t = dis_new/sqrt((m**2+n**2+p**2))
+                    t = (dis_new-dis)/sqrt((m**2+n**2+p**2))
                     (m,n,p) = vector(AB)
 
                 Suppose D is also the same monomer as B, and in ordor to translate D:
@@ -515,7 +526,7 @@ class configs():
         v_AB = np.array(self.vector(config_new, atom_A, atom_B))
         v_A = np.array(self.vector(config_new, atom_A))
         v_B = np.array(self.vector(config_new, atom_B))
-        t = dis_new/np.sqrt((np.sum(np.square(v_AB))))
+        t = (dis_new-dis)/np.sqrt((np.sum(np.square(v_AB))))
 
         monomer_B_new = list()
         for atom in monomer_B:
@@ -583,11 +594,11 @@ class configs():
         #dis_lower = float(raw_input('The original distance_min (Angstrom) you want is : '))
         dis_lower = float(2)#Arument for test
         #dis_upper = float(raw_input('The original distance_max (Angstrom) you want is: '))
-        dis_upper = float(4)
+        dis_upper = float(5)
         #dis_new_lower = float(raw_input('The original distance_new_min (Angstrom) you want is: '))
-        dis_new_lower = float(8)
+        dis_new_lower = float(5)
         #dis_new_lower = float(raw_input('The original distance_new_man (Angstrom) you want is: '))
-        dis_new_upper = float(18)
+        dis_new_upper = float(10)
 
         monomer = self.monomer(configs)
         atom_A = monomer[0][0]
@@ -614,9 +625,7 @@ class configs():
                 dis_new = np.random.uniform(dis_new_lower,dis_new_upper)
                 config_new = self.translate(dis_new,config)
                 configs_new.append(config_new)
-
-
-            #print(self.distance(config_new,atom_A,atom_B))
+                #print('{:5.2f} {:5.2f} {:5.2f} {:5.2f}'.format(self.distance(config,atom_A,atom_B),self.distance(config_new,atom_A,atom_B),dis_new,self.distance(config_new,atom_A,atom_B)-self.distance(config,atom_A,atom_B)))
 
         print('{:d}/{:d} configurations are returned as list.'.format(len(configs_new),configs_ok_count))
         print('*Add point: Expand finished.')
@@ -696,13 +705,14 @@ class configs():
         #print(energy_array[0])
 train_x = 'testpoint_v2b_co2h2o.dat'
 
-a = configs(train_x,first_n_configs=100)
+#a = configs(train_x,first_n_configs=1000)
+a = configs(train_x)
 b = a.list()
 #a.plot()
 #a.prt(b)
 #a.translate()
 #a.prt(b)
-#c = a.add_expand(1600,configs=b)
+c = a.add_expand(2000,configs=b)
 #a.prt(c)
 #a.monomer()
-#a.write('large_distance.xyz',a.sort(c))
+a.write('5-10A.xyz',a.sort(c))
