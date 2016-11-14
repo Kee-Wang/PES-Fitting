@@ -596,9 +596,9 @@ class configs():
         #dis_upper = float(raw_input('The original distance_max (Angstrom) you want is: '))
         dis_upper = float(5)
         #dis_new_lower = float(raw_input('The original distance_new_min (Angstrom) you want is: '))
-        dis_new_lower = float(5)
+        dis_new_lower = float(6)
         #dis_new_lower = float(raw_input('The original distance_new_man (Angstrom) you want is: '))
-        dis_new_upper = float(10)
+        dis_new_upper = float(9)
 
         monomer = self.monomer(configs)
         atom_A = monomer[0][0]
@@ -626,7 +626,7 @@ class configs():
                 config_new = self.translate(dis_new,config)
                 configs_new.append(config_new)
                 #print('{:5.2f} {:5.2f} {:5.2f} {:5.2f}'.format(self.distance(config,atom_A,atom_B),self.distance(config_new,atom_A,atom_B),dis_new,self.distance(config_new,atom_A,atom_B)-self.distance(config,atom_A,atom_B)))
-
+                print('New distance: {:5.2f}'.format(self.distance(config_new,atom_A,atom_B)))
         print('{:d}/{:d} configurations are returned as list.'.format(len(configs_new),configs_ok_count))
         print('*Add point: Expand finished.')
         return configs_new #List of configs that have just been expanded.
@@ -693,16 +693,18 @@ class configs():
         ax.set_ylabel("Frequency")
         ax.annotate('Lowest Energy',xy=(energy_array[0],10),xytext=(energy_array[0], 1000),arrowprops=dict(facecolor='black',shrink =0.005))
         ax.annotate('Highest Energy',xy=(energy_array[-1],10),xytext=(energy_array[-1], 1000),arrowprops=dict(facecolor='black',shrink =0.005))
-        plt.gcf()
+        fig = plt.gcf()
         plt.show()
         decision = raw_input('''Do you want to save the file? (Enter 'y' to save, enter others to skip)''')
         if decision is 'y':
             filename = raw_input('Please specify .eps (1200 dpi) filename: ').strip()
 
-            plt.savefig(filename, format='eps', dpi=1200)
+            fig.savefig(filename, format='eps', dpi=1200)
             print('Plot saved to {}.'.format(filename))
 
         #print(energy_array[0])
+
+
 train_x = 'testpoint_v2b_co2h2o.dat'
 
 #a = configs(train_x,first_n_configs=1000)
@@ -715,4 +717,4 @@ b = a.list()
 c = a.add_expand(2000,configs=b)
 #a.prt(c)
 #a.monomer()
-a.write('5-10A.xyz',a.sort(c))
+a.write('6-9A_2000.xyz',a.sort(c))
