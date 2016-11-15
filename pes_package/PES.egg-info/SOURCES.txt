@@ -3,5 +3,5 @@ PES.egg-info/PKG-INFO
 PES.egg-info/SOURCES.txt
 PES.egg-info/dependency_links.txt
 PES.egg-info/top_level.txt
-pes/__init__.py
-pes/configs.py
+pypes/__init__.py
+pypes/configs.py
