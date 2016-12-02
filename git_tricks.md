@@ -50,3 +50,9 @@ To do so:
 	`git remote set-url origin git+ssh://git@github.com/Kee-Wang/repo.git`
 
 4. You can restore a uncommit deletion by `git checkout -- `deleted-file-here`. Or you can follow the procedure by typing `git status`
+
+5. How to cancel all current commits:
+
+	git reset --hard origin/<branch_name>
+
+	branch_name can be found: git branch
