@@ -94,13 +94,18 @@
       <file leaf-file-name="msa.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/msa.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="488">
-              <caret line="124" column="0" lean-forward="true" selection-start-line="124" selection-start-column="0" selection-end-line="124" selection-end-column="0" />
+            <state relative-caret-position="647">
+              <caret line="188" column="14" lean-forward="false" selection-start-line="188" selection-start-column="14" selection-end-line="188" selection-end-column="14" />
               <folding>
                 <element signature="e#22#39#0" expanded="true" />
                 <element signature="e#623#2579#0" expanded="false" />
                 <element signature="e#2780#4131#0" expanded="false" />
                 <element signature="e#3068#3902#0" expanded="false" />
+                <element signature="e#5705#6142#0" expanded="false" />
+                <element signature="e#6158#6214#0" expanded="false" />
+                <element signature="e#6230#6313#0" expanded="false" />
+                <element signature="e#6402#6415#0" expanded="false" />
+                <element signature="e#6423#6562#0" expanded="false" />
               </folding>
             </state>
           </provider>
@@ -478,6 +483,11 @@
             <element signature="e#623#2579#0" expanded="false" />
             <element signature="e#2780#4131#0" expanded="false" />
             <element signature="e#3068#3902#0" expanded="false" />
+            <element signature="e#5705#6142#0" expanded="false" />
+            <element signature="e#6158#6214#0" expanded="false" />
+            <element signature="e#6230#6313#0" expanded="false" />
+            <element signature="e#6402#6415#0" expanded="false" />
+            <element signature="e#6423#6562#0" expanded="false" />
           </folding>
         </state>
       </provider>
@@ -577,13 +587,18 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/msa.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="488">
-          <caret line="124" column="0" lean-forward="true" selection-start-line="124" selection-start-column="0" selection-end-line="124" selection-end-column="0" />
+        <state relative-caret-position="647">
+          <caret line="188" column="14" lean-forward="false" selection-start-line="188" selection-start-column="14" selection-end-line="188" selection-end-column="14" />
           <folding>
             <element signature="e#22#39#0" expanded="true" />
             <element signature="e#623#2579#0" expanded="false" />
             <element signature="e#2780#4131#0" expanded="false" />
             <element signature="e#3068#3902#0" expanded="false" />
+            <element signature="e#5705#6142#0" expanded="false" />
+            <element signature="e#6158#6214#0" expanded="false" />
+            <element signature="e#6230#6313#0" expanded="false" />
+            <element signature="e#6402#6415#0" expanded="false" />
+            <element signature="e#6423#6562#0" expanded="false" />
           </folding>
         </state>
       </provider>

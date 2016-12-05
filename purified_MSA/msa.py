@@ -183,8 +183,10 @@ ans = raw_input('Do you want to use purified MSA? y/n \n')
 if ans == 'y':
     #interd = [1, 5, 9, 10, 11, 13]
     purify_f90(natom, ncoeff)
-    cl('gfortran basis purify.f90')
-    cl('./a.out')
+    cl('''cd src
+            gfortran basis purify.f90''')
+    cl('''cd src
+    ./a.out''')
     purified_coeff()
 
 g = open('./src/fit.f90','w')
