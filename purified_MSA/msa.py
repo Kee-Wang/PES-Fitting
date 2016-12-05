@@ -43,7 +43,7 @@ def purify_f90(natom=None,ncoeff=None,inter=None):
         907, 911, 919, 929, 937, 941, 947, 953, 967, 971, 977, 983, 991, 997]
 
     print('Hit n as the ending:')
-    f1 = open('purify_test.f90','w')
+    f1 = open('./src/purify.f90','w')
     f1.write("""program purify
     use basis
 
@@ -129,7 +129,7 @@ def purified_coeff():
 
 
 
-order = '4'#raw_input('Please input the maximum order of the polynomial: ')
+order = '6'#raw_input('Please input the maximum order of the polynomial: ')
 symmetry = '2 2 1'#raw_input('Please input the permutation symmetry of the molecule: ')
 train_x = 'points.dat'#raw_input('Please input the name of the data file: ')
 arg = order +' '+ symmetry
@@ -180,11 +180,13 @@ print ('Number of coefficients is: ' + str(ncoeff) +'\n')
 
 
 ans = raw_input('Would you like to continue? y/n \n')
+ans ='y'
 if ans == 'n':
     print('Fitting program terminated')
     quit()
 
 ans = raw_input('Do you want to use purified MSA? y/n \n')
+ans='y'
 if ans == 'y':
     interd = [1, 8, 9, 10]
     purify_f90(natom, ncoeff,interd)
