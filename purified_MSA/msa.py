@@ -20,7 +20,7 @@ def purify_f90(natom=None,ncoeff=None,inter=None):
     if inter is None:
          inter = list()
          while True:
-            a = input('Input r_n that is intermolecular label:')
+            a = raw_input('Input r_n that is intermolecular label:')
             a=a.strip()
             if a is 'n':
                 break
@@ -55,10 +55,10 @@ def purify_f90(natom=None,ncoeff=None,inter=None):
     j=0
     for i in range(1,inter_mol+1):
         if j<=len(inter)-1 and inter[j] is i:
-            f1.write('x({:d})={:d}\n'.format(i,prime[j]))
+            f1.write('x({0:d})={1:d}\n'.format(i,prime[j]))
             j += 1
         else:
-            f1.write('x({:d})={:d}\n'.format(i,0))
+            f1.write('x({0:d})={1:d}\n'.format(i,0))
 
     f1.write('''
     call bemsav(x,p)
@@ -79,54 +79,59 @@ def purify_f90(natom=None,ncoeff=None,inter=None):
 
 """Read the 'purified_coeff.dat' file and then modify the 'basis.f90'"""
 def purified_coeff():
-    f = open('purified_coeff.dat')
+    f = open('./src/purified_coeff.dat')
     count = 0
     purify = list()
     for i in f:
-        i=float(i.strip())
-        if abs(i-0) >= 1*10**(-10):
-            print (i)
-            purify.append(count)
+	try:
+       	    i=float(i.strip())
+            if abs(i-0) >= 1*10**(-10):
+                print (i)
+                purify.append(count)
+	except:
+	    purify.append(count)
         count += 1
     f.close()
 
-    def replace(number,file='basis_copy.f90'):
+    def replace(number,file='basis.f90'):
         import re
 
         f = open(file) #Original file
-        f_new = open('temp','w') #A temporary file
+        f_new = open('./src/temp','w') #A temporary file
         for line in f:
             line = line.strip()
             #print(line)
             poly = 'p('+str(number)+')'
-            doly = 'd('+str(number)+')'
+            doly = 'ddd('+str(number)+')'
             key = '.*p\('+str(number)+'\).*'
             #if re.search(key,line):
             if re.search(key, line): #If find that polynomial
                 if re.search('p\(0\)',line):
-                    line='p=0d0'
+                    line='''real,dimension(0:'''+str(ncoeff-1)+''')::ddd
+				p=0d0'''
                 else:
                     line=line.replace(poly,doly) #Replace poly by doly
                 #print (line)  #Print out the line that has just been replaced
             f_new.write(line+'\n') #Write new lines into temporary file
         f_new.close()
         f.close()
-        cl('mv temp '+file) #Replace original file by temporary file
+        cl('''cd src
+		mv temp basis.f90''') #Replace original file by temporary file
 
     j = 0
     for i in purify[::-1]:
         #print (i)
-        replace(i,file='basis.f90')
+        replace(i,file='./src/basis.f90')
         j=j+1
-        print('Count: {:d}, replacing p({:d}) by d({:d}),{:d}<--list element'.format(j,i,i,purify[-j]))
+        print('Count: {0:d}, replacing p({1:d}) by d({2:d}),{3:d}<--list element'.format(j,i,i,purify[-j]))
     print(purify)
 
 
 
 
-order = raw_input('Please input the maximum order of the polynomial: ')
-symmetry = raw_input('Please input the permutation symmetry of the molecule: ')
-train_x = raw_input('Please input the name of the data file: ')
+order = '4'#raw_input('Please input the maximum order of the polynomial: ')
+symmetry = '2 2 1'#raw_input('Please input the permutation symmetry of the molecule: ')
+train_x = 'points.dat'#raw_input('Please input the name of the data file: ')
 arg = order +' '+ symmetry
 
 print("")
@@ -181,14 +186,16 @@ if ans == 'n':
 
 ans = raw_input('Do you want to use purified MSA? y/n \n')
 if ans == 'y':
-    #interd = [1, 5, 9, 10, 11, 13]
-    purify_f90(natom, ncoeff)
+    interd = [1, 8, 9, 10]
+    purify_f90(natom, ncoeff,interd)
     cl('''cd src
-            gfortran basis purify.f90''')
+            gfortran basis.f90 purify.f90''')
     cl('''cd src
     ./a.out''')
     purified_coeff()
 
+a0='2.5'
+wt = '1000000'
 g = open('./src/fit.f90','w')
 g.write('''program fit
 use basis
