@@ -2098,8 +2098,10 @@ subroutine evpoly(m,p)
 implicit none
 real,dimension(0:2054),intent(in)::m
 real,dimension(0:5834),intent(out)::p
+real,dimension(0:5834)::d
 !::::::::::::::::::::
 
+d=0d0
 p=0d0
 p(1) = m(1) + m(2)
 d(2) = m(3)

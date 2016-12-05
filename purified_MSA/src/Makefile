@@ -9,9 +9,9 @@ LIBS = -mkl=sequential
 %.o: %.f90
 	$(FC) -c $<
 
-OBJFIT := basis.o fit.o
+OBJFIT := basis_copy.o fit.o
 
-OBJGET := basis.o gradient.o pes_shell.o getpot.o
+OBJGET := basis_copy.o gradient.o pes_shell.o getpot.o
 
 fit.x : $(OBJFIT) 
 	$(FC) -o $@ $^ $(LIBS)
