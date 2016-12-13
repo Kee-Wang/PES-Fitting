@@ -1,0 +1,20 @@
+ifort -r8 -O -c basis.f90
+ifort -r8 -O -c fit.f90
+ifort -r8 -O -o fit.x basis.o fit.o -mkl=sequential
+
+Fitting... (This might take time) 
+
+3. Fitting is finished: 
+Overall Root-mean-square fitting error:    0.0000327176 Hartree
+Weighted Root-mean-square fitting error:    0.0000327176 Hartree
+
+ifort -r8 -O -c basis.f90
+ifort -r8 -O -c gradient.f90
+ifort -r8 -O -c pes_shell.f90
+ifort -r8 -O -c getpot.f90
+ifort -r8 -O -o getpot.x basis.o gradient.o pes_shell.o getpot.o -mkl=sequential
+
+4. In order to run the test program, use command:
+./getpot.x test.xyz 
+
+7.18 cm

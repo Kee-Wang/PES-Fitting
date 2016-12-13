@@ -1,0 +1,35 @@
+1. Input file info:
+Number of atoms is : 6
+Number of configurations is: 6244
+
+2. Polynomial info:
+Given polynomial order: 4
+Given symmetry: 3 2 1
+Number of coefficients is: 524
+
+Would you like to continue? y/n 
+y
+
+Every data point is associated with a weight. The weight is given by
+wt = E0 / (E0 + dE), where dE is the energy of that point relative to
+the minium. E0 is a user-specified parameter (in unit Hartree).
+Please specify the E0 you would like to use:
+100000
+
+a0 is a parameter (in unit Bohr) that is used when converting the
+internuclear distances to the Morse variables y = exp(-r / a0).
+Please specify the a0 you would like to use (Enter "0" to use the default
+value 2.5, and we recommend that a0 between 2.0 and 3.0):
+0
+
+ifort -r8 -O -c basis.f90
+ifort -r8 -O -c fit.f90
+ifort -r8 -O -o fit.x basis.o fit.o -mkl=sequential
+
+Fitting... (This might take time) 
+
+3. Fitting is finished: 
+Overall Root-mean-square fitting error:    0.0000089359 Hartree
+Weighted Root-mean-square fitting error:    0.0000089359 Hartree
+
+1.96cm
